@@ -1,0 +1,70 @@
+package com.example.ecoswap.models;
+
+public class User {
+    private String id;
+    private String name;
+    private String email;
+    private String bio;
+    private String profileImageUrl;
+    private String createdAt;
+    
+    public User() {
+    }
+    
+    public User(String id, String name, String email, String bio, String profileImageUrl, String createdAt) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.bio = bio;
+        this.profileImageUrl = profileImageUrl;
+        this.createdAt = createdAt;
+    }
+    
+    public String getId() {
+        return id;
+    }
+    
+    public void setId(String id) {
+        this.id = id;
+    }
+    
+    public String getName() {
+        return name;
+    }
+    
+    public void setName(String name) {
+        this.name = name;
+    }
+    
+    public String getEmail() {
+        return email;
+    }
+    
+    public void setEmail(String email) {
+        this.email = email;
+    }
+    
+    public String getBio() {
+        return bio;
+    }
+    
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+    
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+    
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+    
+    public String getCreatedAt() {
+        return createdAt;
+    }
+    
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+}
