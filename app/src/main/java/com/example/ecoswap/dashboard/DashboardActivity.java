@@ -26,9 +26,10 @@ public class DashboardActivity extends AppCompatActivity {
         initViews();
         setupBottomNavigation();
         
-        // Load default fragment
+        // Load default fragment (Home = Marketplace)
         if (savedInstanceState == null) {
-            loadFragment(new ForumFragment());
+            loadFragment(new MarketplaceFragment());
+            bottomNavigationView.setSelectedItemId(R.id.nav_home);
         }
     }
     
@@ -41,20 +42,25 @@ public class DashboardActivity extends AppCompatActivity {
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
             
-            if (itemId == R.id.nav_forum) {
-                loadFragment(new ForumFragment());
+            if (itemId == R.id.nav_home) {
+                // Home = Marketplace (browse items to swap/donate)
+                loadFragment(new MarketplaceFragment());
                 return true;
             } else if (itemId == R.id.nav_community) {
+                // Community = Forum (user experiences, posts, insights)
                 loadFragment(new CommunityFragment());
                 return true;
-            } else if (itemId == R.id.nav_swap) {
-                startActivity(new Intent(this, SwapActivity.class));
+            } else if (itemId == R.id.nav_post) {
+                // Post = Create new listing
+                loadFragment(new CreateListingFragment());
                 return true;
-            } else if (itemId == R.id.nav_tracker) {
-                startActivity(new Intent(this, EcoTrackerActivity.class));
+            } else if (itemId == R.id.nav_messages) {
+                // Messages = Inbox for item claims and chats
+                loadFragment(new MessagesFragment());
                 return true;
-            } else if (itemId == R.id.nav_settings) {
-                startActivity(new Intent(this, SettingsActivity.class));
+            } else if (itemId == R.id.nav_profile) {
+                // Profile = User profile, impact, eco level
+                loadFragment(new ProfileFragment());
                 return true;
             }
             

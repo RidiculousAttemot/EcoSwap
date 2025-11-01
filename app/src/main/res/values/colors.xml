@@ -1,7 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Base Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    
+    <!-- Primary Brand Colors (Eye-friendly) -->
+    <color name="primary_green">#00C853</color>
+    <color name="primary_green_dark">#00A843</color>
+    <color name="primary_blue">#2196F3</color>
+    <color name="primary_blue_dark">#1976D2</color>
+    
+    <!-- Gradient Colors -->
+    <color name="gradient_green_start">#00C853</color>
+    <color name="gradient_blue_end">#2196F3</color>
+    
+    <!-- Background Colors -->
+    <color name="background_light">#F5F5F5</color>
+    <color name="background_white">#FFFFFF</color>
+    <color name="card_background">#FFFFFF</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_hint">#BDBDBD</color>
+    <color name="text_white">#FFFFFF</color>
+    
+    <!-- Status Colors -->
+    <color name="success_green">#4CAF50</color>
+    <color name="warning_orange">#FF9800</color>
+    <color name="error_red">#F44336</color>
+    
+    <!-- Chip/Category Colors -->
+    <color name="chip_electronics">#E3F2FD</color>
+    <color name="chip_clothing">#FCE4EC</color>
+    <color name="chip_books">#FFF9C4</color>
+    <color name="chip_furniture">#E8F5E9</color>
+    
+    <!-- Border/Divider -->
+    <color name="border_light">#E0E0E0</color>
+    <color name="divider">#EEEEEE</color>
+    
+    <!-- Legacy (for compatibility) -->
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>
     <color name="teal_200">#FF03DAC5</color>

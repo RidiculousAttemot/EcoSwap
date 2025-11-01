@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@android:color/white">
+    android:background="@color/background_light">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -25,7 +25,8 @@
                 android:layout_height="wrap_content"
                 android:text="← Back"
                 android:textSize="16sp"
-                android:textColor="@color/purple_700"
+                android:textColor="@color/primary_blue"
+                android:textStyle="bold"
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="8dp" />
@@ -47,7 +48,7 @@
             android:text="Verify Your Email"
             android:textSize="28sp"
             android:textStyle="bold"
-            android:textColor="@color/black"
+            android:textColor="@color/primary_green"
             android:layout_marginBottom="12dp" />
 
         <!-- Subtitle -->
@@ -57,7 +58,7 @@
             android:layout_height="wrap_content"
             android:text="We've sent a 6-digit code to"
             android:textSize="16sp"
-            android:textColor="#666666"
+            android:textColor="@color/text_secondary"
             android:gravity="center"
             android:layout_marginBottom="8dp" />
 
@@ -68,7 +69,7 @@
             android:layout_height="wrap_content"
             android:text="user@email.com"
             android:textSize="16sp"
-            android:textColor="@color/purple_700"
+            android:textColor="@color/primary_blue"
             android:textStyle="bold"
             android:layout_marginBottom="32dp" />
 
@@ -89,7 +90,8 @@
                 android:maxLength="1"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:background="@android:drawable/edit_text"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_otp_box"
                 android:layout_margin="4dp" />
 
             <EditText
@@ -101,7 +103,8 @@
                 android:maxLength="1"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:background="@android:drawable/edit_text"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_otp_box"
                 android:layout_margin="4dp" />
 
             <EditText
@@ -113,7 +116,8 @@
                 android:maxLength="1"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:background="@android:drawable/edit_text"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_otp_box"
                 android:layout_margin="4dp" />
 
             <EditText
@@ -125,7 +129,8 @@
                 android:maxLength="1"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:background="@android:drawable/edit_text"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_otp_box"
                 android:layout_margin="4dp" />
 
             <EditText
@@ -137,7 +142,8 @@
                 android:maxLength="1"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:background="@android:drawable/edit_text"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_otp_box"
                 android:layout_margin="4dp" />
 
             <EditText
@@ -149,7 +155,8 @@
                 android:maxLength="1"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:background="@android:drawable/edit_text"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/bg_otp_box"
                 android:layout_margin="4dp" />
 
         </LinearLayout>
@@ -158,13 +165,12 @@
         <Button
             android:id="@+id/btnVerify"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:text="Verify Code"
-            android:textColor="@android:color/white"
+            android:textColor="@color/white"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:backgroundTint="@color/purple_700"
-            android:paddingVertical="14dp"
+            android:backgroundTint="@color/primary_green"
             android:layout_marginBottom="16dp" />
 
         <!-- Resend Code -->
@@ -179,7 +185,7 @@
                 android:layout_height="wrap_content"
                 android:text="Didn't receive the code? "
                 android:textSize="14sp"
-                android:textColor="#666666" />
+                android:textColor="@color/text_secondary" />
 
             <TextView
                 android:id="@+id/tvResendCode"
@@ -187,7 +193,7 @@
                 android:layout_height="wrap_content"
                 android:text="Resend"
                 android:textSize="14sp"
-                android:textColor="@color/purple_700"
+                android:textColor="@color/primary_blue"
                 android:textStyle="bold"
                 android:clickable="true"
                 android:focusable="true"
@@ -201,7 +207,7 @@
             android:layout_height="wrap_content"
             android:text="Resend code in 60s"
             android:textSize="12sp"
-            android:textColor="#999999"
+            android:textColor="@color/text_hint"
             android:layout_marginTop="8dp"
             android:visibility="visible" />
 

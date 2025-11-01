@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Home Tab - Marketplace for browsing items -->
     <item
-        android:id="@+id/nav_forum"
-        android:icon="@android:drawable/ic_menu_recent_history"
-        android:title="Forum" />
+        android:id="@+id/nav_home"
+        android:icon="@drawable/ic_home"
+        android:title="Home" />
+    
+    <!-- Saved/Community Tab - User experiences and posts -->
     <item
         android:id="@+id/nav_community"
-        android:icon="@android:drawable/ic_menu_myplaces"
+        android:icon="@drawable/ic_community"
         android:title="Community" />
+    
+    <!-- Post Tab - Create new listing -->
     <item
-        android:id="@+id/nav_swap"
-        android:icon="@android:drawable/ic_menu_rotate"
-        android:title="Swap" />
+        android:id="@+id/nav_post"
+        android:icon="@drawable/ic_add"
+        android:title="Post" />
+    
+    <!-- Chat/Inbox Tab - Messages and claims -->
     <item
-        android:id="@+id/nav_tracker"
-        android:icon="@android:drawable/ic_menu_compass"
-        android:title="Tracker" />
+        android:id="@+id/nav_messages"
+        android:icon="@drawable/ic_chat"
+        android:title="Chats" />
+    
+    <!-- Profile Tab - User profile and impact -->
     <item
-        android:id="@+id/nav_settings"
-        android:icon="@android:drawable/ic_menu_preferences"
-        android:title="Settings" />
+        android:id="@+id/nav_profile"
+        android:icon="@drawable/ic_profile"
+        android:title="Profile" />
 </menu>

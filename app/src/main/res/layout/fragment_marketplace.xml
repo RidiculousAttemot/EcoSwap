@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_light">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- App Title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="EcoSwap"
+                android:textColor="@color/primary_green"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Search Bar -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="25dp"
+                app:cardElevation="2dp"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="12dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@android:drawable/ic_menu_search"
+                        android:contentDescription="Search"
+                        android:layout_marginEnd="8dp" />
+
+                    <EditText
+                        android:id="@+id/etSearch"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@null"
+                        android:hint="Search items to swap..."
+                        android:textColorHint="@color/text_hint"
+                        android:textSize="14sp"
+                        android:inputType="text" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Category Chips -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:layout_marginBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <!-- All Category -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipAll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="All"
+                        android:layout_marginEnd="8dp"
+                        app:chipBackgroundColor="@color/primary_green"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_white" />
+
+                    <!-- Electronics -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipElectronics"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Electronics"
+                        android:layout_marginEnd="8dp"
+                        app:chipBackgroundColor="@color/background_white"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="@color/border_light"
+                        android:textColor="@color/text_primary" />
+
+                    <!-- Clothing -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipClothing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Clothing"
+                        android:layout_marginEnd="8dp"
+                        app:chipBackgroundColor="@color/background_white"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="@color/border_light"
+                        android:textColor="@color/text_primary" />
+
+                    <!-- Books -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipBooks"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Books"
+                        android:layout_marginEnd="8dp"
+                        app:chipBackgroundColor="@color/background_white"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="@color/border_light"
+                        android:textColor="@color/text_primary" />
+
+                    <!-- Furniture -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipFurniture"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Furniture"
+                        app:chipBackgroundColor="@color/background_white"
+                        app:chipStrokeWidth="1dp"
+                        app:chipStrokeColor="@color/border_light"
+                        android:textColor="@color/text_primary" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
+
+            <!-- Items RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvItems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

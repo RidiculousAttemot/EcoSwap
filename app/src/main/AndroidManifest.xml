@@ -5,6 +5,11 @@
     <!-- Internet permission for Supabase API calls -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Storage permissions for profile picture upload -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <application
         android:allowBackup="true"
@@ -41,7 +46,7 @@
             android:exported="false" />
         
         <activity
-            android:name=".auth.ProfileActivity"
+            android:name=".auth.UserProfileActivity"
             android:exported="false" />
         
         <!-- Dashboard Activities -->
@@ -50,16 +55,7 @@
             android:exported="false" />
         
         <activity
-            android:name=".dashboard.ForumActivity"
-            android:exported="false" />
-        
-        <activity
             android:name=".dashboard.PostDetailActivity"
-            android:exported="false" />
-        
-        <!-- Market Activities -->
-        <activity
-            android:name=".market.MarketActivity"
             android:exported="false" />
         
         <activity
@@ -72,6 +68,10 @@
         
         <activity
             android:name=".market.BiddingActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".market.BidDetailActivity"
             android:exported="false" />
         
         <!-- Tracker Activity -->
