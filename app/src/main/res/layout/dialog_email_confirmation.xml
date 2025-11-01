@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@android:color/white">
+    
+    <!-- Success Icon -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="✉️"
+        android:textSize="64sp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp" />
+    
+    <!-- Title -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Check Your Email"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="12dp" />
+    
+    <!-- Email Address -->
+    <TextView
+        android:id="@+id/tvConfirmEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="confirmation@email.com"
+        android:textSize="16sp"
+        android:textColor="@color/purple_700"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp" />
+    
+    <!-- Message -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="We've sent a confirmation link to your email address. Please check your inbox and click the link to verify your account."
+        android:textSize="14sp"
+        android:textColor="@color/black"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:layout_marginBottom="8dp" />
+    
+    <!-- Additional Info -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Didn't receive the email? Check your spam folder or contact support."
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+    
+    <!-- OK Button -->
+    <Button
+        android:id="@+id/btnConfirmationOk"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Got It"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:backgroundTint="@color/purple_700"
+        android:paddingVertical="12dp" />
+    
+</LinearLayout>

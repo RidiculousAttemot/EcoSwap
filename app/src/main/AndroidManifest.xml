@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Internet permission for Supabase API calls -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -10,16 +14,76 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.EcoSwap">
+        android:theme="@style/Theme.EcoSwap"
+        android:usesCleartextTraffic="true">
+        
+        <!-- Main entry point -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <!-- Authentication Activities -->
+        <activity
+            android:name=".auth.LoginActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".auth.RegisterActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".auth.VerifyEmailActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".auth.ProfileActivity"
+            android:exported="false" />
+        
+        <!-- Dashboard Activities -->
+        <activity
+            android:name=".dashboard.DashboardActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".dashboard.ForumActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".dashboard.PostDetailActivity"
+            android:exported="false" />
+        
+        <!-- Market Activities -->
+        <activity
+            android:name=".market.MarketActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".market.SwapActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".market.DonationActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".market.BiddingActivity"
+            android:exported="false" />
+        
+        <!-- Tracker Activity -->
+        <activity
+            android:name=".tracker.EcoTrackerActivity"
+            android:exported="false" />
+        
+        <!-- Settings Activity -->
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:exported="false" />
+        
     </application>
 
 </manifest>
