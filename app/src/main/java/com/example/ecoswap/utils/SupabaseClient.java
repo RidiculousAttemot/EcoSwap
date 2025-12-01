@@ -3,11 +3,13 @@ package com.example.ecoswap.utils;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Base64;
 import com.example.ecoswap.BuildConfig;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import okhttp3.*;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -21,11 +23,19 @@ public class SupabaseClient {
     private final OkHttpClient httpClient;
     private final Gson gson;
     private final Handler mainHandler;
+    private final SessionManager sessionManager;
+    private final Context appContext;
+
+    private static final long TOKEN_EXPIRY_BUFFER_SECONDS = 30L;
     
     private String accessToken = null;
+    private String refreshToken = null;
+    private long accessTokenExpiry = 0L;
     private String userId = null;
     
     private SupabaseClient(Context context) {
+        this.appContext = context.getApplicationContext();
+        this.sessionManager = SessionManager.getInstance(this.appContext);
         this.supabaseUrl = BuildConfig.SUPABASE_URL;
         this.supabaseKey = BuildConfig.SUPABASE_ANON_KEY;
         this.gson = new Gson();
@@ -37,6 +47,13 @@ public class SupabaseClient {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
+
+        hydrateSession(
+            sessionManager.getAccessToken(),
+            sessionManager.getRefreshToken(),
+            sessionManager.getAccessTokenExpiry(),
+            sessionManager.getUserId()
+        );
     }
     
     public static synchronized SupabaseClient getInstance(Context context) {
@@ -60,6 +77,30 @@ public class SupabaseClient {
     
     public boolean isLoggedIn() {
         return accessToken != null && userId != null;
+    }
+
+    public void hydrateSession(String accessToken, String refreshToken, long expiryEpochSeconds, String userId) {
+        this.accessToken = (accessToken != null && !accessToken.trim().isEmpty()) ? accessToken : null;
+        this.refreshToken = (refreshToken != null && !refreshToken.trim().isEmpty()) ? refreshToken : null;
+        this.accessTokenExpiry = expiryEpochSeconds;
+        this.userId = (userId != null && !userId.trim().isEmpty()) ? userId : null;
+    }
+
+    public void hydrateSession(String accessToken, String userId) {
+        this.accessToken = (accessToken != null && !accessToken.trim().isEmpty()) ? accessToken : null;
+        this.userId = (userId != null && !userId.trim().isEmpty()) ? userId : null;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public String getRefreshToken() {
+        return refreshToken;
+    }
+
+    public long getAccessTokenExpiry() {
+        return accessTokenExpiry;
     }
     
     // ========== Authentication Methods ==========
@@ -209,8 +250,13 @@ public class SupabaseClient {
                             // Store access token
                             if (result.has("access_token") && !result.get("access_token").isJsonNull()) {
                                 accessToken = result.get("access_token").getAsString();
+                                accessTokenExpiry = extractExpiry(accessToken);
                                 userId = uid;
                             }
+                            if (result.has("refresh_token") && !result.get("refresh_token").isJsonNull()) {
+                                refreshToken = result.get("refresh_token").getAsString();
+                            }
+                            persistSession();
                             
                             mainHandler.post(() -> callback.onSuccess(uid));
                         } else {
@@ -262,9 +308,14 @@ public class SupabaseClient {
                         JsonObject result = gson.fromJson(responseBody, JsonObject.class);
                         if (result.has("access_token")) {
                             accessToken = result.get("access_token").getAsString();
+                            accessTokenExpiry = extractExpiry(accessToken);
+                        }
+                        if (result.has("refresh_token") && !result.get("refresh_token").isJsonNull()) {
+                            refreshToken = result.get("refresh_token").getAsString();
                         }
                         if (result.has("user") && result.getAsJsonObject("user").has("id")) {
                             userId = result.getAsJsonObject("user").get("id").getAsString();
+                            persistSession();
                             mainHandler.post(() -> callback.onSuccess(userId));
                         } else {
                             mainHandler.post(() -> callback.onError("Invalid response from server"));
@@ -300,14 +351,20 @@ public class SupabaseClient {
             public void onFailure(Call call, IOException e) {
                 // Clear local session anyway
                 accessToken = null;
+                refreshToken = null;
+                accessTokenExpiry = 0L;
                 userId = null;
+                sessionManager.logout();
                 mainHandler.post(() -> callback.onSuccess(""));
             }
             
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 accessToken = null;
+                refreshToken = null;
+                accessTokenExpiry = 0L;
                 userId = null;
+                sessionManager.logout();
                 mainHandler.post(() -> callback.onSuccess(""));
             }
         });
@@ -319,155 +376,182 @@ public class SupabaseClient {
      * Insert data into a table
      */
     public void insert(String table, Object data, OnDatabaseCallback callback) {
-        String jsonData = gson.toJson(data);
-        
-        RequestBody body = RequestBody.create(
-            jsonData,
-            MediaType.parse("application/json")
-        );
-        
-        Request.Builder requestBuilder = new Request.Builder()
-                .url(supabaseUrl + "/rest/v1/" + table)
-                .post(body)
-                .addHeader("apikey", supabaseKey)
-                .addHeader("Content-Type", "application/json")
-                .addHeader("Prefer", "return=representation");
-        
-        if (accessToken != null) {
-            requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
-        }
-        
-        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+        Runnable requestRunnable = () -> {
+            String jsonData = gson.toJson(data);
+
+            RequestBody body = RequestBody.create(
+                jsonData,
+                MediaType.parse("application/json")
+            );
+
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(supabaseUrl + "/rest/v1/" + table)
+                    .post(body)
+                    .addHeader("apikey", supabaseKey)
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Prefer", "return=representation");
+
+            if (accessToken != null) {
+                requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
             }
-            
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String responseBody = response.body().string();
-                
-                if (response.isSuccessful()) {
-                    mainHandler.post(() -> callback.onSuccess(responseBody));
-                } else {
-                    mainHandler.post(() -> callback.onError("Insert failed: " + responseBody));
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
-            }
-        });
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body().string();
+
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess(responseBody));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Insert failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
     }
     
     /**
      * Select data from a table
      */
     public void select(String table, String query, OnDatabaseCallback callback) {
-        HttpUrl.Builder urlBuilder = HttpUrl.parse(supabaseUrl + "/rest/v1/" + table).newBuilder();
-        urlBuilder.addQueryParameter("select", "*");
-        
-        if (query != null && !query.isEmpty()) {
-            // Simple query support - can be extended
-            urlBuilder.addEncodedQueryParameter("", query);
-        }
-        
-        Request.Builder requestBuilder = new Request.Builder()
-                .url(urlBuilder.build())
-                .get()
-                .addHeader("apikey", supabaseKey)
-                .addHeader("Content-Type", "application/json");
-        
-        if (accessToken != null) {
-            requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
-        }
-        
-        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+        Runnable requestRunnable = () -> {
+            HttpUrl.Builder urlBuilder = HttpUrl.parse(supabaseUrl + "/rest/v1/" + table).newBuilder();
+            urlBuilder.addQueryParameter("select", "*");
+
+            if (query != null && !query.isEmpty()) {
+                urlBuilder.addEncodedQueryParameter("", query);
             }
-            
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String responseBody = response.body().string();
-                
-                if (response.isSuccessful()) {
-                    mainHandler.post(() -> callback.onSuccess(responseBody));
-                } else {
-                    mainHandler.post(() -> callback.onError("Select failed: " + responseBody));
+
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(urlBuilder.build())
+                    .get()
+                    .addHeader("apikey", supabaseKey)
+                    .addHeader("Content-Type", "application/json");
+
+            if (accessToken != null) {
+                requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
+            }
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
-            }
-        });
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body().string();
+
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess(responseBody));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Select failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
     }
     
     /**
      * Update data in a table
      */
     public void update(String table, String id, Object data, OnDatabaseCallback callback) {
-        String jsonData = gson.toJson(data);
-        
-        RequestBody body = RequestBody.create(
-            jsonData,
-            MediaType.parse("application/json")
-        );
-        
-        Request.Builder requestBuilder = new Request.Builder()
-                .url(supabaseUrl + "/rest/v1/" + table + "?id=eq." + id)
-                .patch(body)
-                .addHeader("apikey", supabaseKey)
-                .addHeader("Content-Type", "application/json")
-                .addHeader("Prefer", "return=representation");
-        
-        if (accessToken != null) {
-            requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
-        }
-        
-        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+        Runnable requestRunnable = () -> {
+            String jsonData = gson.toJson(data);
+
+            RequestBody body = RequestBody.create(
+                jsonData,
+                MediaType.parse("application/json")
+            );
+
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(supabaseUrl + "/rest/v1/" + table + "?id=eq." + id)
+                    .patch(body)
+                    .addHeader("apikey", supabaseKey)
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Prefer", "return=representation");
+
+            if (accessToken != null) {
+                requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
             }
-            
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                String responseBody = response.body().string();
-                
-                if (response.isSuccessful()) {
-                    mainHandler.post(() -> callback.onSuccess(responseBody));
-                } else {
-                    mainHandler.post(() -> callback.onError("Update failed: " + responseBody));
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
-            }
-        });
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body().string();
+
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess(responseBody));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Update failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
     }
     
     /**
      * Delete data from a table
      */
     public void delete(String table, String id, OnDatabaseCallback callback) {
-        Request.Builder requestBuilder = new Request.Builder()
-                .url(supabaseUrl + "/rest/v1/" + table + "?id=eq." + id)
-                .delete()
-                .addHeader("apikey", supabaseKey)
-                .addHeader("Content-Type", "application/json");
-        
-        if (accessToken != null) {
-            requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
-        }
-        
-        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+        Runnable requestRunnable = () -> {
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(supabaseUrl + "/rest/v1/" + table + "?id=eq." + id)
+                    .delete()
+                    .addHeader("apikey", supabaseKey)
+                    .addHeader("Content-Type", "application/json");
+
+            if (accessToken != null) {
+                requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
             }
-            
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                if (response.isSuccessful()) {
-                    mainHandler.post(() -> callback.onSuccess("Deleted successfully"));
-                } else {
-                    String responseBody = response.body().string();
-                    mainHandler.post(() -> callback.onError("Delete failed: " + responseBody));
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
-            }
-        });
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess("Deleted successfully"));
+                    } else {
+                        String responseBody = response.body().string();
+                        mainHandler.post(() -> callback.onError("Delete failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
     }
     
     // ========== Storage Methods ==========
@@ -476,68 +560,86 @@ public class SupabaseClient {
      * Upload file to storage bucket
      */
     public void uploadFile(String bucket, String path, byte[] data, OnStorageCallback callback) {
-        RequestBody body = RequestBody.create(data, MediaType.parse("application/octet-stream"));
-        
-        Request.Builder requestBuilder = new Request.Builder()
+        Runnable requestRunnable = () -> {
+            RequestBody body = RequestBody.create(data, MediaType.parse("application/octet-stream"));
+            android.util.Log.d("SupabaseClient", "uploadFile bucket=" + bucket
+                + " path=" + path
+                + " bytes=" + (data != null ? data.length : 0)
+                + " hasToken=" + (accessToken != null));
+
+            Request.Builder requestBuilder = new Request.Builder()
                 .url(supabaseUrl + "/storage/v1/object/" + bucket + "/" + path)
                 .post(body)
                 .addHeader("apikey", supabaseKey)
                 .addHeader("Content-Type", "application/octet-stream");
-        
-        if (accessToken != null) {
-            requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
-        }
-        
-        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
-            }
-            
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                if (response.isSuccessful()) {
-                    String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
-                    mainHandler.post(() -> callback.onSuccess(publicUrl));
-                } else {
-                    String responseBody = response.body().string();
-                    mainHandler.post(() -> callback.onError("Upload failed: " + responseBody));
+
+            String authToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+            requestBuilder.addHeader("Authorization", "Bearer " + authToken);
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    android.util.Log.e("SupabaseClient", "uploadFile network failure", e);
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
-            }
-        });
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body() != null ? response.body().string() : "";
+                    android.util.Log.d("SupabaseClient", "uploadFile response code=" + response.code()
+                        + " body=" + responseBody);
+                    if (response.isSuccessful()) {
+                        String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+                        mainHandler.post(() -> callback.onSuccess(publicUrl));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Upload failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
     }
     
     /**
      * Download file from storage bucket
      */
     public void downloadFile(String bucket, String path, OnStorageCallback callback) {
-        Request.Builder requestBuilder = new Request.Builder()
+        Runnable requestRunnable = () -> {
+            Request.Builder requestBuilder = new Request.Builder()
                 .url(supabaseUrl + "/storage/v1/object/" + bucket + "/" + path)
                 .get()
                 .addHeader("apikey", supabaseKey);
-        
-        if (accessToken != null) {
-            requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
-        }
-        
-        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-            @Override
-            public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
-            }
-            
-            @Override
-            public void onResponse(Call call, Response response) throws IOException {
-                if (response.isSuccessful()) {
-                    // For downloads, we return the URL - actual byte handling should be done separately
-                    String url = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
-                    mainHandler.post(() -> callback.onSuccess(url));
-                } else {
-                    String responseBody = response.body().string();
-                    mainHandler.post(() -> callback.onError("Download failed: " + responseBody));
+
+            String authToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+            requestBuilder.addHeader("Authorization", "Bearer " + authToken);
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
                 }
-            }
-        });
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    if (response.isSuccessful()) {
+                        String url = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+                        mainHandler.post(() -> callback.onSuccess(url));
+                    } else {
+                        String responseBody = response.body().string();
+                        mainHandler.post(() -> callback.onError("Download failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
     }
     
     /**
@@ -545,6 +647,226 @@ public class SupabaseClient {
      */
     public String getPublicUrl(String bucket, String path) {
         return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+    }
+    
+    // ========== Generic Database Query Methods ==========
+    
+    /**
+     * Generic GET request to Supabase REST API
+     */
+    public void query(String endpoint, OnDatabaseCallback callback) {
+        Runnable requestRunnable = () -> {
+            Request.Builder requestBuilder = new Request.Builder()
+                .url(supabaseUrl + endpoint)
+                .get()
+                .addHeader("apikey", supabaseKey)
+                .addHeader("Content-Type", "application/json");
+
+            String authToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+            requestBuilder.addHeader("Authorization", "Bearer " + authToken);
+
+            Request request = requestBuilder.build();
+
+            httpClient.newCall(request).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body().string();
+
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess(responseBody));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Query failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
+    }
+    
+    /**
+     * Generic PATCH request to Supabase REST API
+     */
+    public void updateRecord(String endpoint, JsonObject data, OnDatabaseCallback callback) {
+        Runnable requestRunnable = () -> {
+            RequestBody body = RequestBody.create(
+                gson.toJson(data),
+                MediaType.parse("application/json")
+            );
+
+            Request.Builder requestBuilder = new Request.Builder()
+                .url(supabaseUrl + endpoint)
+                .patch(body)
+                .addHeader("apikey", supabaseKey)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Prefer", "return=minimal");
+
+            String authToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+            requestBuilder.addHeader("Authorization", "Bearer " + authToken);
+
+            Request request = requestBuilder.build();
+
+            httpClient.newCall(request).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body() != null ? response.body().string() : "";
+
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess(responseBody));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Update failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
+    }
+
+    private boolean isAccessTokenExpired() {
+        if (accessToken == null) {
+            return false;
+        }
+        if (accessTokenExpiry == 0L) {
+            return false;
+        }
+        long currentSeconds = System.currentTimeMillis() / 1000L;
+        return currentSeconds >= (accessTokenExpiry - TOKEN_EXPIRY_BUFFER_SECONDS);
+    }
+
+    private long extractExpiry(String jwt) {
+        try {
+            String[] parts = jwt.split("\\.");
+            if (parts.length < 2) {
+                return 0L;
+            }
+            byte[] decoded = Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP);
+            String payload = new String(decoded, StandardCharsets.UTF_8);
+            JsonObject payloadJson = gson.fromJson(payload, JsonObject.class);
+            if (payloadJson != null && payloadJson.has("exp")) {
+                return payloadJson.get("exp").getAsLong();
+            }
+        } catch (Exception e) {
+            android.util.Log.w("SupabaseClient", "Unable to parse JWT expiry", e);
+        }
+        return 0L;
+    }
+
+    private void runWithSession(Runnable onReady, Runnable onAuthFailure) {
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            onReady.run();
+            return;
+        }
+
+        if (accessToken == null) {
+            refreshAccessToken(onReady, onAuthFailure);
+            return;
+        }
+
+        if (!isAccessTokenExpired()) {
+            onReady.run();
+            return;
+        }
+
+        refreshAccessToken(onReady, onAuthFailure);
+    }
+
+    private void refreshAccessToken(Runnable onSuccess, Runnable onFailure) {
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            if (onFailure != null) {
+                onFailure.run();
+            }
+            return;
+        }
+
+        JsonObject payload = new JsonObject();
+        payload.addProperty("refresh_token", refreshToken);
+
+        RequestBody body = RequestBody.create(
+            gson.toJson(payload),
+            MediaType.parse("application/json")
+        );
+
+        Request request = new Request.Builder()
+            .url(supabaseUrl + "/auth/v1/token?grant_type=refresh_token")
+            .post(body)
+            .addHeader("apikey", supabaseKey)
+            .addHeader("Content-Type", "application/json")
+            .build();
+
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (onFailure != null) {
+                    mainHandler.post(onFailure);
+                }
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                if (response.isSuccessful()) {
+                    try {
+                        JsonObject result = gson.fromJson(responseBody, JsonObject.class);
+                        if (result != null) {
+                            if (result.has("access_token")) {
+                                accessToken = result.get("access_token").getAsString();
+                                accessTokenExpiry = extractExpiry(accessToken);
+                            }
+                            if (result.has("refresh_token") && !result.get("refresh_token").isJsonNull()) {
+                                refreshToken = result.get("refresh_token").getAsString();
+                            }
+                            if (result.has("user") && !result.get("user").isJsonNull()) {
+                                JsonObject user = result.getAsJsonObject("user");
+                                if (user.has("id") && !user.get("id").isJsonNull()) {
+                                    userId = user.get("id").getAsString();
+                                }
+                            }
+                            persistSession();
+                        }
+                        if (onSuccess != null) {
+                            mainHandler.post(onSuccess);
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.e("SupabaseClient", "Refresh parse error", e);
+                        if (onFailure != null) {
+                            mainHandler.post(onFailure);
+                        }
+                    }
+                } else {
+                    android.util.Log.e("SupabaseClient", "Refresh failed: " + responseBody);
+                    if (onFailure != null) {
+                        mainHandler.post(onFailure);
+                    }
+                }
+            }
+        });
+    }
+
+    private void persistSession() {
+        sessionManager.saveAccessToken(accessToken);
+        sessionManager.saveAccessTokenExpiry(accessTokenExpiry);
+        sessionManager.saveRefreshToken(refreshToken);
+        if (userId != null) {
+            sessionManager.saveUserId(userId);
+        }
+        sessionManager.setLoggedIn(accessToken != null && userId != null);
     }
     
     // ========== Callback Interfaces ==========

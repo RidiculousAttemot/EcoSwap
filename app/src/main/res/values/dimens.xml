@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spacing System -->
+    <dimen name="spacing_xxs">2dp</dimen>
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_s">8dp</dimen>
+    <dimen name="spacing_m">12dp</dimen>
+    <dimen name="spacing_l">16dp</dimen>
+    <dimen name="spacing_xl">20dp</dimen>
+    <dimen name="spacing_xxl">24dp</dimen>
+    <dimen name="spacing_xxxl">32dp</dimen>
+
+    <!-- Card Dimensions -->
+    <dimen name="card_margin_horizontal">12dp</dimen>
+    <dimen name="card_margin_vertical">4dp</dimen>
+    <dimen name="card_padding">16dp</dimen>
+    <dimen name="card_corner_radius">12dp</dimen>
+    <dimen name="card_elevation">2dp</dimen>
+
+    <!-- Avatar Sizes -->
+    <dimen name="avatar_small">40dp</dimen>
+    <dimen name="avatar_medium">56dp</dimen>
+    <dimen name="avatar_large">80dp</dimen>
+    <dimen name="avatar_xlarge">100dp</dimen>
+
+    <!-- Icon Sizes -->
+    <dimen name="icon_small">16dp</dimen>
+    <dimen name="icon_medium">24dp</dimen>
+    <dimen name="icon_large">32dp</dimen>
+    <dimen name="icon_xlarge">40dp</dimen>
+
+    <!-- Button Heights -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_height_large">56dp</dimen>
+
+    <!-- Input Field Heights -->
+    <dimen name="input_height">48dp</dimen>
+    <dimen name="input_height_large">56dp</dimen>
+
+    <!-- Badge/Indicator Sizes -->
+    <dimen name="badge_size">22dp</dimen>
+    <dimen name="indicator_size">14dp</dimen>
+
+    <!-- Bottom Navigation -->
+    <dimen name="bottom_nav_height">56dp</dimen>
+    <dimen name="bottom_nav_icon_size">24dp</dimen>
+
+    <!-- Text Sizes (using sp for scalability) -->
+    <dimen name="text_size_caption">12sp</dimen>
+    <dimen name="text_size_body">14sp</dimen>
+    <dimen name="text_size_body_large">16sp</dimen>
+    <dimen name="text_size_subtitle">18sp</dimen>
+    <dimen name="text_size_title">20sp</dimen>
+    <dimen name="text_size_title_large">24sp</dimen>
+    <dimen name="text_size_display">28sp</dimen>
+</resources>

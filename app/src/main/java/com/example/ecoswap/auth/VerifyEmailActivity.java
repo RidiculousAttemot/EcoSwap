@@ -182,6 +182,9 @@ public class VerifyEmailActivity extends AppCompatActivity {
                 sessionManager.saveUserId(userId);
                 sessionManager.saveUserEmail(email);
                 sessionManager.saveUserName(name);
+                sessionManager.saveAccessToken(supabaseClient.getAccessToken());
+                sessionManager.saveRefreshToken(supabaseClient.getRefreshToken());
+                sessionManager.saveAccessTokenExpiry(supabaseClient.getAccessTokenExpiry());
                 sessionManager.setLoggedIn(true);
                 
                 Toast.makeText(VerifyEmailActivity.this, 

@@ -49,6 +49,13 @@
             android:name=".auth.UserProfileActivity"
             android:exported="false" />
         
+        <!-- User Profile Viewer (for viewing other users' profiles) -->
+        <activity
+            android:name=".UserProfileActivity"
+            android:exported="false" />
+        
+
+        
         <!-- Dashboard Activities -->
         <activity
             android:name=".dashboard.DashboardActivity"

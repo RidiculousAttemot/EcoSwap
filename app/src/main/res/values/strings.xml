@@ -1,3 +1,55 @@
 <resources>
     <string name="app_name">EcoSwap</string>
+
+    <!-- Profile placeholders -->
+    <string name="profile_avatar_placeholder">--</string>
+    <string name="profile_name_placeholder">EcoSwap Member</string>
+    <string name="profile_location_placeholder">📍 Your location</string>
+    <string name="profile_stat_placeholder">0</string>
+    <string name="profile_eco_level_placeholder">Eco level loading...</string>
+    <string name="profile_eco_description_placeholder">Level details coming soon</string>
+    <string name="profile_progress_placeholder">Progress pending...</string>
+    <string name="profile_rating_placeholder">Rating pending</string>
+    <string name="profile_review_placeholder">Based on 0 reviews</string>
+    <string name="profile_member_since_placeholder">Member since --</string>
+    <string name="profile_about_placeholder">No bio available yet.</string>
+    <string name="profile_rating_value_placeholder">0.0</string>
+    <string name="profile_review_count_placeholder">0 reviews</string>
+    <string name="community_post_time_placeholder">Just now</string>
+    <string name="community_post_content_placeholder">Post content goes here.</string>
+
+    <!-- Marketplace -->
+    <string name="location_unknown">Location unavailable</string>
+    <string name="error_loading_listings">We couldn’t load listings right now. Please try again in a moment.</string>
+    <string name="category_other">Other</string>
+    <string name="category_electronics">Electronics</string>
+    <string name="category_clothing">Clothing</string>
+    <string name="category_books">Books</string>
+    <string name="category_furniture">Furniture</string>
+    <string name="category_swap">Swap</string>
+    <string name="category_donation">Donation</string>
+    <string name="condition_new">New</string>
+    <string name="condition_like_new">Like new</string>
+    <string name="condition_good">Good</string>
+    <string name="condition_fair">Fair</string>
+    <string name="condition_poor">Well-loved</string>
+    <string name="posted_by_format">Posted by %1$s</string>
+    <string name="require_login_message">Please sign in to post a listing.</string>
+    <string name="validation_title_required">Please enter a title.</string>
+    <string name="validation_description_required">Please add a description.</string>
+    <string name="validation_location_required">Let others know where to meet.</string>
+    <string name="listing_created_success">Your listing is live on Explore!</string>
+    <string name="listing_created_error">We couldn’t publish that listing yet. Try again.</string>
+    <string name="location_near_you">near you</string>
+    <string name="chat_title">Chat</string>
+    <string name="chat_hint">Message this seller…</string>
+    <string name="just_now">Just now</string>
+    <string name="messages_empty_state">No messages yet. Start a chat from any listing to see it here.</string>
+    <string name="messages_error_generic">We couldn’t load your conversations right now. Pull to refresh.</string>
+    <string name="messages_unknown_user">EcoSwap member</string>
+    <string name="chat_history_error">We couldn’t load this chat. Please try again.</string>
+    <string name="listing_preview_details_header">Details</string>
+    <string name="listing_preview_description_empty">The owner hasn’t added more details yet.</string>
+    <string name="listing_preview_chat_cta">Message Owner</string>
+    <string name="listing_preview_nearby">Near you</string>
 </resources>

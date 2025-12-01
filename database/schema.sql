@@ -65,6 +65,8 @@ CREATE TABLE public.posts (
     
     -- Location & Media
     location TEXT,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     image_url TEXT,
     
     -- Status tracking

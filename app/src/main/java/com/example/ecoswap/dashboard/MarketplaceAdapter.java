@@ -1,6 +1,7 @@
 package com.example.ecoswap.dashboard;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -8,18 +9,27 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import com.bumptech.glide.Glide;
 import com.example.ecoswap.R;
+import com.example.ecoswap.utils.LocationUtils;
 import com.google.android.material.chip.Chip;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MarketplaceAdapter extends RecyclerView.Adapter<MarketplaceAdapter.ViewHolder> {
     
-    private List<MarketplaceFragment.MarketplaceItem> items;
-    private Context context;
+    public interface OnListingClickListener {
+        void onListingClicked(@NonNull MarketplaceFragment.MarketplaceItem item);
+    }
+
+    private final List<MarketplaceFragment.MarketplaceItem> items;
+    private final Context context;
+    private final OnListingClickListener clickListener;
     
-    public MarketplaceAdapter(List<MarketplaceFragment.MarketplaceItem> items, Context context) {
-        this.items = items;
+    public MarketplaceAdapter(List<MarketplaceFragment.MarketplaceItem> items, Context context, OnListingClickListener clickListener) {
+        this.items = items != null ? items : new ArrayList<>();
         this.context = context;
+        this.clickListener = clickListener;
     }
     
     @NonNull
@@ -34,50 +44,78 @@ public class MarketplaceAdapter extends RecyclerView.Adapter<MarketplaceAdapter.
         MarketplaceFragment.MarketplaceItem item = items.get(position);
         
         holder.tvItemTitle.setText(item.getTitle());
-        holder.tvLocation.setText(item.getLocation());
-        holder.tvPostedBy.setText("Posted by " + item.getPostedBy());
-        holder.tvCondition.setText(item.getCondition());
-        holder.chipCategory.setText(item.getCategory());
+        holder.tvLocation.setText(buildLocationLabel(item));
+        holder.tvPostedBy.setText(context.getString(R.string.posted_by_format, item.getPostedBy()));
+        holder.tvCondition.setText(item.getDisplayCondition());
+        holder.chipCategory.setText(item.getDisplayCategory());
         
         // Set category chip color based on category
         int chipColor = R.color.chip_electronics;
         int textColor = R.color.primary_blue;
-        
-        switch (item.getCategory()) {
-            case "Electronics":
+        String categoryKey = item.getRawCategory() != null ? item.getRawCategory().toLowerCase() : "";
+
+        switch (categoryKey) {
+            case "electronics":
                 chipColor = R.color.chip_electronics;
                 textColor = R.color.primary_blue;
                 break;
-            case "Clothing":
+            case "clothing":
                 chipColor = R.color.chip_clothing;
                 textColor = R.color.error_red;
                 break;
-            case "Books":
+            case "books":
                 chipColor = R.color.chip_books;
                 textColor = R.color.warning_orange;
                 break;
-            case "Furniture":
+            case "furniture":
                 chipColor = R.color.chip_furniture;
                 textColor = R.color.success_green;
+                break;
+            case "donation":
+                chipColor = R.color.chip_books;
+                textColor = R.color.primary_green;
+                break;
+            case "swap":
+                chipColor = R.color.chip_clothing;
+                textColor = R.color.primary_blue;
+                break;
+            default:
+                chipColor = R.color.chip_electronics;
+                textColor = R.color.primary_blue;
                 break;
         }
         
         holder.chipCategory.setChipBackgroundColorResource(chipColor);
         holder.chipCategory.setTextColor(context.getResources().getColor(textColor, null));
         
-        // TODO: Load image with Glide or Picasso if imageUrl is not null
-        holder.ivItemImage.setImageResource(R.drawable.ic_launcher_background); // Placeholder
+        if (!TextUtils.isEmpty(item.getImageUrl())) {
+            Glide.with(context)
+                    .load(item.getImageUrl())
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_launcher_background)
+                    .into(holder.ivItemImage);
+        } else {
+            holder.ivItemImage.setImageResource(R.drawable.ic_launcher_background);
+        }
         
-        // Favorite button click
-        holder.ivFavorite.setOnClickListener(v -> {
-            // TODO: Toggle favorite status
-            holder.ivFavorite.setImageResource(android.R.drawable.btn_star_big_on);
+        holder.itemView.setOnClickListener(v -> {
+            if (clickListener != null) {
+                clickListener.onListingClicked(item);
+            }
         });
     }
     
     @Override
     public int getItemCount() {
         return items.size();
+    }
+
+    public void updateItems(List<MarketplaceFragment.MarketplaceItem> updatedItems) {
+        items.clear();
+        if (updatedItems != null) {
+            items.addAll(updatedItems);
+        }
+        notifyDataSetChanged();
     }
     
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -95,5 +133,22 @@ public class MarketplaceAdapter extends RecyclerView.Adapter<MarketplaceAdapter.
             tvCondition = itemView.findViewById(R.id.tvCondition);
             chipCategory = itemView.findViewById(R.id.chipCategory);
         }
+    }
+
+    private String buildLocationLabel(MarketplaceFragment.MarketplaceItem item) {
+        StringBuilder builder = new StringBuilder();
+        if (!TextUtils.isEmpty(item.getLocation())) {
+            builder.append(item.getLocation());
+        } else {
+            builder.append(context.getString(R.string.location_unknown));
+        }
+
+        if (item.getDistanceKm() != null) {
+            String distanceLabel = LocationUtils.formatDistanceLabel(item.getDistanceKm());
+            builder.append(" • ").append(distanceLabel);
+        } else if (item.isNearUser()) {
+            builder.append(" • ").append(context.getString(R.string.location_near_you));
+        }
+        return builder.toString();
     }
 }

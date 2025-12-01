@@ -9,6 +9,8 @@ public class SessionManager {
     private static final String KEY_USER_EMAIL = "user_email";
     private static final String KEY_USER_NAME = "user_name";
     private static final String KEY_ACCESS_TOKEN = "access_token";
+    private static final String KEY_REFRESH_TOKEN = "refresh_token";
+    private static final String KEY_ACCESS_TOKEN_EXPIRY = "access_token_expiry";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
     
     private static SessionManager instance;
@@ -29,13 +31,19 @@ public class SessionManager {
         return instance;
     }
     
-    public void createLoginSession(String userId, String email, String name, String accessToken) {
+    public void createLoginSession(String userId, String email, String name, String accessToken, String refreshToken, long accessTokenExpiry) {
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
         editor.putString(KEY_USER_ID, userId);
         editor.putString(KEY_USER_EMAIL, email);
         editor.putString(KEY_USER_NAME, name);
         editor.putString(KEY_ACCESS_TOKEN, accessToken);
+        editor.putString(KEY_REFRESH_TOKEN, refreshToken);
+        editor.putLong(KEY_ACCESS_TOKEN_EXPIRY, accessTokenExpiry);
         editor.apply();
+    }
+
+    public void createLoginSession(String userId, String email, String name, String accessToken) {
+        createLoginSession(userId, email, name, accessToken, null, 0L);
     }
     
     // Individual setters
@@ -63,6 +71,16 @@ public class SessionManager {
         editor.putString(KEY_ACCESS_TOKEN, token);
         editor.apply();
     }
+
+    public void saveRefreshToken(String token) {
+        editor.putString(KEY_REFRESH_TOKEN, token);
+        editor.apply();
+    }
+
+    public void saveAccessTokenExpiry(long expiryEpochSeconds) {
+        editor.putLong(KEY_ACCESS_TOKEN_EXPIRY, expiryEpochSeconds);
+        editor.apply();
+    }
     
     // Getters
     public boolean isLoggedIn() {
@@ -83,6 +101,14 @@ public class SessionManager {
     
     public String getAccessToken() {
         return prefs.getString(KEY_ACCESS_TOKEN, null);
+    }
+
+    public String getRefreshToken() {
+        return prefs.getString(KEY_REFRESH_TOKEN, null);
+    }
+
+    public long getAccessTokenExpiry() {
+        return prefs.getLong(KEY_ACCESS_TOKEN_EXPIRY, 0L);
     }
     
     public void logout() {

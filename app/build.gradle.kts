@@ -21,8 +21,13 @@ android {
         val properties = Properties()
         properties.load(project.rootProject.file("local.properties").inputStream())
         
+        val storageBucket = properties.getProperty("SUPABASE_STORAGE_BUCKET", "ecoswap-images")
+        val listingsBucket = properties.getProperty("SUPABASE_LISTINGS_BUCKET", "listing-photos")
+
         buildConfigField("String", "SUPABASE_URL", "\"${properties.getProperty("SUPABASE_URL", "")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${properties.getProperty("SUPABASE_ANON_KEY", "")}\"")
+        buildConfigField("String", "SUPABASE_STORAGE_BUCKET", "\"$storageBucket\"")
+        buildConfigField("String", "SUPABASE_LISTINGS_BUCKET", "\"$listingsBucket\"")
     }
 
     buildTypes {

@@ -1,0 +1,39 @@
+<resources>
+    <string-array name="listing_category_labels">
+        <item>Electronics</item>
+        <item>Clothing</item>
+        <item>Furniture</item>
+        <item>Books</item>
+        <item>Sports</item>
+        <item>Swap</item>
+        <item>Donation</item>
+        <item>Other</item>
+    </string-array>
+
+    <string-array name="listing_category_values">
+        <item>electronics</item>
+        <item>clothing</item>
+        <item>furniture</item>
+        <item>books</item>
+        <item>sports</item>
+        <item>swap</item>
+        <item>donation</item>
+        <item>other</item>
+    </string-array>
+
+    <string-array name="listing_condition_labels">
+        <item>New</item>
+        <item>Like new</item>
+        <item>Good</item>
+        <item>Fair</item>
+        <item>Well-loved</item>
+    </string-array>
+
+    <string-array name="listing_condition_values">
+        <item>new</item>
+        <item>like_new</item>
+        <item>good</item>
+        <item>fair</item>
+        <item>poor</item>
+    </string-array>
+</resources>

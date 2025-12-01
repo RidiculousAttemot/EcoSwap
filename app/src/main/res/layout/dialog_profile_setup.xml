@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/white">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/primary_green"
+            android:padding="@dimen/spacing_xxl"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎉"
+                android:textSize="48sp"
+                android:layout_marginBottom="@dimen/spacing_m" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Welcome to EcoSwap!"
+                android:textColor="@color/white"
+                android:textSize="@dimen/text_size_title_large"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Let's set up your profile"
+                android:textColor="@color/white"
+                android:textSize="@dimen/text_size_body_large"
+                android:gravity="center"
+                android:layout_marginTop="@dimen/spacing_xs"
+                android:alpha="0.9" />
+
+        </LinearLayout>
+
+        <!-- Form Content -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="@dimen/spacing_xxl">
+
+            <!-- Profile Picture Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Profile Picture (Optional)"
+                android:textColor="@color/text_primary"
+                android:textSize="@dimen/text_size_body"
+                android:textStyle="bold"
+                android:layout_marginBottom="@dimen/spacing_m" />
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="@dimen/spacing_xxl">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="@dimen/avatar_xlarge"
+                    android:layout_height="@dimen/avatar_xlarge"
+                    app:cardCornerRadius="50dp"
+                    app:cardElevation="4dp"
+                    app:cardBackgroundColor="@color/background_light">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent">
+
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/imgAvatarPreview"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:visibility="gone"
+                            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.EcoSwap.Circle"
+                            app:strokeColor="@color/primary_green"
+                            app:strokeWidth="1dp" />
+
+                        <TextView
+                            android:id="@+id/tvAvatarPreview"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/bg_circle_white"
+                            android:gravity="center"
+                            android:text="📸"
+                            android:textSize="40sp" />
+
+                    </FrameLayout>
+
+                </androidx.cardview.widget.CardView>
+
+                <com.google.android.material.floatingactionbutton.FloatingActionButton
+                    android:id="@+id/btnAddPhoto"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|end"
+                    app:fabCustomSize="40dp"
+                    app:fabSize="mini"
+                    app:maxImageSize="20dp"
+                    android:src="@drawable/ic_camera"
+                    app:tint="@color/white"
+                    app:backgroundTint="@color/primary_blue"
+                    app:elevation="4dp"
+                    android:contentDescription="Add photo" />
+
+            </FrameLayout>
+
+            <!-- Display Name (Required) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Display Name *"
+                android:layout_marginBottom="@dimen/spacing_l"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                app:boxStrokeColor="@color/primary_green"
+                app:hintTextColor="@color/primary_green"
+                app:startIconDrawable="@drawable/ic_profile"
+                app:startIconTint="@color/primary_green"
+                app:helperText="This is how others will see you">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etDisplayName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPersonName"
+                    android:maxLines="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="@dimen/text_size_body_large" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Location (Optional) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Location"
+                android:layout_marginBottom="@dimen/spacing_l"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                app:boxStrokeColor="@color/primary_green"
+                app:hintTextColor="@color/primary_green"
+                app:endIconMode="clear_text"
+                app:endIconTint="@color/text_hint"
+                app:helperText="City, State or Region">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etLocation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="@dimen/text_size_body_large" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Bio (Optional) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Bio"
+                android:layout_marginBottom="@dimen/spacing_xxl"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                app:boxStrokeColor="@color/primary_green"
+                app:hintTextColor="@color/primary_green"
+                app:counterEnabled="true"
+                app:counterMaxLength="150"
+                app:helperText="Tell others about yourself and your eco goals">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etBio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:maxLines="4"
+                    android:minLines="3"
+                    android:maxLength="150"
+                    android:gravity="start"
+                    android:textColor="@color/text_primary"
+                    android:textSize="@dimen/text_size_body_large" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Action Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <Button
+                    android:id="@+id/btnComplete"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/button_height_large"
+                    android:text="Complete Setup"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/text_size_body_large"
+                    android:textAllCaps="false"
+                    android:backgroundTint="@color/primary_green"
+                    android:layout_marginBottom="@dimen/spacing_m"
+                    style="@style/Widget.MaterialComponents.Button" />
+
+                <Button
+                    android:id="@+id/btnSkip"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/button_height"
+                    android:text="Skip for now"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="@dimen/text_size_body"
+                    android:textAllCaps="false"
+                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

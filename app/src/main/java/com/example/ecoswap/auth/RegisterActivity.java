@@ -2,6 +2,7 @@ package com.example.ecoswap.auth;
 
 import android.app.Dialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Window;
@@ -9,8 +10,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.ecoswap.R;
+import com.example.ecoswap.ProfileSetupHelper;
 import com.example.ecoswap.dashboard.DashboardActivity;
 import com.example.ecoswap.utils.SupabaseClient;
 import com.example.ecoswap.utils.SessionManager;
@@ -24,6 +28,10 @@ public class RegisterActivity extends AppCompatActivity {
     private TextView tvLogin;
     private SupabaseClient supabaseClient;
     private SessionManager sessionManager;
+    private ProfileSetupHelper profileSetupHelper;
+    
+    // Activity result launcher for photo picker
+    private ActivityResultLauncher<Intent> photoPickerLauncher;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +41,20 @@ public class RegisterActivity extends AppCompatActivity {
         // Initialize Supabase client and session manager
         supabaseClient = SupabaseClient.getInstance(this);
         sessionManager = SessionManager.getInstance(this);
+        profileSetupHelper = new ProfileSetupHelper(this);
+        
+        // Setup photo picker launcher
+        photoPickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri photoUri = result.getData().getData();
+                    if (photoUri != null) {
+                        profileSetupHelper.handlePhotoSelected(photoUri);
+                    }
+                }
+            }
+        );
         
         initViews();
         setupListeners();
@@ -113,23 +135,24 @@ public class RegisterActivity extends AppCompatActivity {
                     intent.putExtra("name", name);
                     startActivity(intent);
                 } else {
-                    // Email confirmation not required, proceed to dashboard
+                    // Email confirmation not required, proceed to profile setup
                     String userId = response;
                     
                     // Save session
                     sessionManager.saveUserId(userId);
                     sessionManager.saveUserEmail(email);
                     sessionManager.saveUserName(name);
+                    sessionManager.saveAccessToken(supabaseClient.getAccessToken());
+                    sessionManager.saveRefreshToken(supabaseClient.getRefreshToken());
+                    sessionManager.saveAccessTokenExpiry(supabaseClient.getAccessTokenExpiry());
                     sessionManager.setLoggedIn(true);
                     
                     Toast.makeText(RegisterActivity.this, 
                         "✅ Registration successful! Welcome!", 
                         Toast.LENGTH_LONG).show();
                     
-                    // Navigate to dashboard
-                    Intent intent = new Intent(RegisterActivity.this, DashboardActivity.class);
-                    startActivity(intent);
-                    finish();
+                    // Show profile setup dialog
+                    profileSetupHelper.showProfileSetupDialog(userId, email, photoPickerLauncher);
                 }
             }
             

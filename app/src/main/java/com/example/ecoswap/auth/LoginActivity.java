@@ -94,6 +94,9 @@ public class LoginActivity extends AppCompatActivity {
                 // Save session
                 sessionManager.saveUserId(userId);
                 sessionManager.saveUserEmail(email);
+                sessionManager.saveAccessToken(supabaseClient.getAccessToken());
+                sessionManager.saveRefreshToken(supabaseClient.getRefreshToken());
+                sessionManager.saveAccessTokenExpiry(supabaseClient.getAccessTokenExpiry());
                 sessionManager.setLoggedIn(true);
                 
                 Toast.makeText(LoginActivity.this, 

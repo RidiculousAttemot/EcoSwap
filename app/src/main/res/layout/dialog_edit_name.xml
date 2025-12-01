@@ -71,16 +71,32 @@
                     app:cardElevation="4dp"
                     app:cardBackgroundColor="@color/white">
 
-                    <TextView
-                        android:id="@+id/tvAvatarPreview"
+                    <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="@drawable/bg_circle_white"
-                        android:gravity="center"
-                        android:text="JD"
-                        android:textColor="@color/primary_green"
-                        android:textSize="36sp"
-                        android:textStyle="bold" />
+                        android:layout_height="match_parent">
+
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/imgAvatarPreview"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:visibility="gone"
+                            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.EcoSwap.Circle"
+                            app:strokeColor="@color/primary_green"
+                            app:strokeWidth="1dp" />
+
+                        <TextView
+                            android:id="@+id/tvAvatarPreview"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/bg_circle_white"
+                            android:gravity="center"
+                            android:text="JD"
+                            android:textColor="@color/primary_green"
+                            android:textSize="36sp"
+                            android:textStyle="bold" />
+
+                    </FrameLayout>
 
                 </androidx.cardview.widget.CardView>
 

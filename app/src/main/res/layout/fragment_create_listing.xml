@@ -41,41 +41,59 @@
             android:layout_marginBottom="8dp" />
 
         <androidx.cardview.widget.CardView
+            android:id="@+id/cardAddPhoto"
             android:layout_width="match_parent"
-            android:layout_height="150dp"
+            android:layout_height="180dp"
+            android:layout_marginBottom="16dp"
             app:cardCornerRadius="12dp"
-            app:cardElevation="2dp"
-            android:layout_marginBottom="16dp">
+            app:cardElevation="2dp">
 
-            <LinearLayout
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:gravity="center">
+                android:layout_height="match_parent">
+
+                <LinearLayout
+                    android:id="@+id/layoutAddPhoto"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@android:drawable/ic_menu_camera"
+                        android:tint="@color/text_secondary"
+                        android:contentDescription="Add photos" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tap to add a cover photo"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp"
+                        android:layout_marginTop="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Recommended 1:1 square"
+                        android:textColor="@color/text_hint"
+                        android:textSize="12sp"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
 
                 <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:src="@android:drawable/ic_menu_camera"
-                    android:contentDescription="Add photos" />
+                    android:id="@+id/ivListingPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="Listing photo preview"
+                    android:visibility="gone" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Tap to add photos"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:layout_marginTop="8dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Add up to 5 photos"
-                    android:textColor="@color/text_hint"
-                    android:textSize="12sp"
-                    android:layout_marginTop="4dp" />
-
-            </LinearLayout>
+            </FrameLayout>
 
         </androidx.cardview.widget.CardView>
 
@@ -93,11 +111,11 @@
             android:id="@+id/etItemTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_edit_text"
             android:hint="e.g., Vintage Desk Lamp"
             android:padding="12dp"
-            android:background="@drawable/bg_edit_text"
-            android:textSize="14sp"
-            android:layout_marginBottom="16dp" />
+            android:textSize="14sp" />
 
         <!-- Description -->
         <TextView
@@ -113,36 +131,36 @@
             android:id="@+id/etDescription"
             android:layout_width="match_parent"
             android:layout_height="100dp"
-            android:hint="Describe your item, its condition, and any details..."
-            android:padding="12dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/bg_edit_text"
             android:gravity="top"
-            android:textSize="14sp"
-            android:layout_marginBottom="16dp" />
+            android:hint="Describe your item, its condition, and any details..."
+            android:padding="12dp"
+            android:textSize="14sp" />
 
         <!-- Category and Condition Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
 
             <!-- Category -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
                 android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginEnd="8dp">
+                android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
                     android:text="Category"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:textStyle="bold" />
 
                 <Spinner
                     android:id="@+id/spinnerCategory"
@@ -157,18 +175,18 @@
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="8dp">
+                android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
                     android:text="Condition"
                     android:textColor="@color/text_primary"
                     android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:textStyle="bold" />
 
                 <Spinner
                     android:id="@+id/spinnerCondition"
@@ -195,11 +213,11 @@
             android:id="@+id/etLocation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/bg_edit_text"
             android:hint="Enter your location"
             android:padding="12dp"
-            android:background="@drawable/bg_edit_text"
-            android:textSize="14sp"
-            android:layout_marginBottom="24dp" />
+            android:textSize="14sp" />
 
         <!-- Eco Message -->
         <LinearLayout
@@ -233,11 +251,20 @@
             android:id="@+id/btnPostItem"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:backgroundTint="@color/primary_green"
             android:text="Post Item"
             android:textColor="@color/text_white"
-            android:textStyle="bold"
-            android:backgroundTint="@color/primary_green"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ProgressBar
+            android:id="@+id/progressPostListing"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="12dp"
+            android:visibility="gone" />
 
     </LinearLayout>
 
