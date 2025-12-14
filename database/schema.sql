@@ -158,6 +158,16 @@ CREATE POLICY "Users can view donations they're involved in"
     ON public.donations FOR SELECT
     USING (auth.uid() = donor_id);
 
+-- Allow the listing owner (post.user_id) to view related donations
+CREATE POLICY "Listing owner can view donations"
+    ON public.donations FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.posts p
+            WHERE p.id = post_id AND p.user_id = auth.uid()
+        )
+    );
+
 CREATE POLICY "Authenticated users can create donations"
     ON public.donations FOR INSERT
     WITH CHECK (auth.uid() = donor_id);
