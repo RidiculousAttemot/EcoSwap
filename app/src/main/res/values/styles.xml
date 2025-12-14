@@ -56,4 +56,16 @@
             <item name="cornerFamily">rounded</item>
             <item name="cornerSize">50%</item>
         </style>
+
+    <style name="ShapeAppearanceOverlay.EcoSwap.CornerSize15Percent" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">15%</item>
+    </style>
+
+    <style name="Widget.EcoSwap.Chip.Assist" parent="Widget.MaterialComponents.Chip.Entry">
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="chipBackgroundColor">@color/background_light</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 </resources>

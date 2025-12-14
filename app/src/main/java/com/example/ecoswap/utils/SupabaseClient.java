@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 import okhttp3.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -315,6 +316,14 @@ public class SupabaseClient {
                         }
                         if (result.has("user") && result.getAsJsonObject("user").has("id")) {
                             userId = result.getAsJsonObject("user").get("id").getAsString();
+                        } else if (accessToken != null) {
+                            String fallbackUserId = extractUserId(accessToken);
+                            if (fallbackUserId != null) {
+                                userId = fallbackUserId;
+                            }
+                        }
+
+                        if (userId != null) {
                             persistSession();
                             mainHandler.post(() -> callback.onSuccess(userId));
                         } else {
@@ -324,7 +333,8 @@ public class SupabaseClient {
                         mainHandler.post(() -> callback.onError("Parse error: " + e.getMessage()));
                     }
                 } else {
-                    mainHandler.post(() -> callback.onError("Sign in failed: " + responseBody));
+                    String friendly = translateAuthError(responseBody, response.code());
+                    mainHandler.post(() -> callback.onError(friendly));
                 }
             }
         });
@@ -471,6 +481,13 @@ public class SupabaseClient {
      * Update data in a table
      */
     public void update(String table, String id, Object data, OnDatabaseCallback callback) {
+        update(table, "id", id, data, callback);
+    }
+
+    /**
+     * Update data in a table by an arbitrary column (e.g., user_id).
+     */
+    public void update(String table, String column, String value, Object data, OnDatabaseCallback callback) {
         Runnable requestRunnable = () -> {
             String jsonData = gson.toJson(data);
 
@@ -479,8 +496,8 @@ public class SupabaseClient {
                 MediaType.parse("application/json")
             );
 
-            Request.Builder requestBuilder = new Request.Builder()
-                    .url(supabaseUrl + "/rest/v1/" + table + "?id=eq." + id)
+                Request.Builder requestBuilder = new Request.Builder()
+                    .url(supabaseUrl + "/rest/v1/" + table + "?" + column + "=eq." + value)
                     .patch(body)
                     .addHeader("apikey", supabaseKey)
                     .addHeader("Content-Type", "application/json")
@@ -519,9 +536,16 @@ public class SupabaseClient {
      * Delete data from a table
      */
     public void delete(String table, String id, OnDatabaseCallback callback) {
+        delete(table, "id", id, callback);
+    }
+
+    /**
+     * Delete rows by arbitrary column (e.g., user_id).
+     */
+    public void delete(String table, String column, String value, OnDatabaseCallback callback) {
         Runnable requestRunnable = () -> {
             Request.Builder requestBuilder = new Request.Builder()
-                    .url(supabaseUrl + "/rest/v1/" + table + "?id=eq." + id)
+                    .url(supabaseUrl + "/rest/v1/" + table + "?" + column + "=eq." + value)
                     .delete()
                     .addHeader("apikey", supabaseKey)
                     .addHeader("Content-Type", "application/json");
@@ -567,41 +591,53 @@ public class SupabaseClient {
                 + " bytes=" + (data != null ? data.length : 0)
                 + " hasToken=" + (accessToken != null));
 
-            Request.Builder requestBuilder = new Request.Builder()
-                .url(supabaseUrl + "/storage/v1/object/" + bucket + "/" + path)
-                .post(body)
-                .addHeader("apikey", supabaseKey)
-                .addHeader("Content-Type", "application/octet-stream");
-
-            String authToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
-            requestBuilder.addHeader("Authorization", "Bearer " + authToken);
-
-            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
-                @Override
-                public void onFailure(Call call, IOException e) {
-                    android.util.Log.e("SupabaseClient", "uploadFile network failure", e);
-                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
-                }
-
-                @Override
-                public void onResponse(Call call, Response response) throws IOException {
-                    String responseBody = response.body() != null ? response.body().string() : "";
-                    android.util.Log.d("SupabaseClient", "uploadFile response code=" + response.code()
-                        + " body=" + responseBody);
-                    if (response.isSuccessful()) {
-                        String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
-                        mainHandler.post(() -> callback.onSuccess(publicUrl));
-                    } else {
-                        mainHandler.post(() -> callback.onError("Upload failed: " + responseBody));
-                    }
-                }
-            });
+            sendUploadRequest(bucket, path, body, false, callback);
         };
 
         runWithSession(
             requestRunnable,
             () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
         );
+    }
+
+    private void sendUploadRequest(String bucket, String path, RequestBody body, boolean forceAnon, OnStorageCallback callback) {
+        Request.Builder requestBuilder = new Request.Builder()
+            .url(supabaseUrl + "/storage/v1/object/" + bucket + "/" + path)
+            .post(body)
+            .addHeader("apikey", supabaseKey)
+            .addHeader("Content-Type", "application/octet-stream");
+
+        String authToken;
+        if (forceAnon) {
+            authToken = supabaseKey;
+        } else {
+            authToken = (accessToken != null && !accessToken.isEmpty()) ? accessToken : supabaseKey;
+        }
+        requestBuilder.addHeader("Authorization", "Bearer " + authToken);
+
+        httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                android.util.Log.e("SupabaseClient", "uploadFile network failure", e);
+                mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String responseBody = response.body() != null ? response.body().string() : "";
+                android.util.Log.d("SupabaseClient", "uploadFile response code=" + response.code()
+                    + " body=" + responseBody);
+                if (response.isSuccessful()) {
+                    String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + path;
+                    mainHandler.post(() -> callback.onSuccess(publicUrl));
+                } else if (response.code() == 403 && !forceAnon) {
+                    android.util.Log.w("SupabaseClient", "Upload 403 with user token; retrying with anon key");
+                    sendUploadRequest(bucket, path, body, true, callback);
+                } else {
+                    mainHandler.post(() -> callback.onError("Upload failed: " + responseBody));
+                }
+            }
+        });
     }
     
     /**
@@ -766,6 +802,46 @@ public class SupabaseClient {
             android.util.Log.w("SupabaseClient", "Unable to parse JWT expiry", e);
         }
         return 0L;
+    }
+
+    private String extractUserId(String jwt) {
+        try {
+            String[] parts = jwt.split("\\.");
+            if (parts.length < 2) {
+                return null;
+            }
+            byte[] decoded = Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP);
+            String payload = new String(decoded, StandardCharsets.UTF_8);
+            JsonObject payloadJson = gson.fromJson(payload, JsonObject.class);
+            if (payloadJson != null) {
+                if (payloadJson.has("sub") && !payloadJson.get("sub").isJsonNull()) {
+                    return payloadJson.get("sub").getAsString();
+                }
+                if (payloadJson.has("user_id") && !payloadJson.get("user_id").isJsonNull()) {
+                    return payloadJson.get("user_id").getAsString();
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.w("SupabaseClient", "Unable to parse JWT for user id", e);
+        }
+        return null;
+    }
+
+    private String translateAuthError(String body, int code) {
+        if (body == null || body.isEmpty()) {
+            return "Login failed";
+        }
+        String lower = body.toLowerCase(Locale.US);
+        if (lower.contains("email not confirmed") || lower.contains("email not verified")) {
+            return "Email not confirmed. Please check your inbox for the verification link.";
+        }
+        if (lower.contains("invalid login credentials") || lower.contains("invalid_grant")) {
+            return "Invalid email or password.";
+        }
+        if (code == 429) {
+            return "Too many attempts. Please wait a moment and try again.";
+        }
+        return "Login failed: " + body;
     }
 
     private void runWithSession(Runnable onReady, Runnable onAuthFailure) {

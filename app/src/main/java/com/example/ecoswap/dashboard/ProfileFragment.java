@@ -32,6 +32,7 @@ import androidx.fragment.app.Fragment;
 import com.bumptech.glide.Glide;
 import com.example.ecoswap.auth.LoginActivity;
 import com.example.ecoswap.R;
+import com.example.ecoswap.dashboard.listings.MyListingsFragment;
 import com.example.ecoswap.utils.ProfileImageUploader;
 import com.example.ecoswap.utils.SessionManager;
 import com.example.ecoswap.utils.SupabaseClient;
@@ -70,6 +71,7 @@ public class ProfileFragment extends Fragment {
     private TextView tvReviewCount;
     private MaterialCardView cardBio;
     private LinearLayout btnLogout;
+    private LinearLayout btnMyListings;
     private ProgressBar progressLevel;
     
     private SessionManager sessionManager;
@@ -169,6 +171,7 @@ public class ProfileFragment extends Fragment {
         tvReviewCount = view.findViewById(R.id.tvReviewCount);
         progressLevel = view.findViewById(R.id.progressLevel);
         btnLogout = view.findViewById(R.id.btnLogout);
+        btnMyListings = view.findViewById(R.id.btnMyListings);
         
         btnEditProfilePicture.setOnClickListener(v -> {
             checkPermissionAndOpenPicker();
@@ -181,6 +184,10 @@ public class ProfileFragment extends Fragment {
         btnLogout.setOnClickListener(v -> {
             performLogout();
         });
+
+        if (btnMyListings != null) {
+            btnMyListings.setOnClickListener(v -> openMyListings());
+        }
         
         return view;
     }
@@ -408,6 +415,23 @@ public class ProfileFragment extends Fragment {
         
         // Finish current activity
         requireActivity().finish();
+    }
+
+    private void openMyListings() {
+        if (!isAdded()) {
+            return;
+        }
+        MyListingsFragment fragment = MyListingsFragment.newInstance(null, false);
+        getParentFragmentManager()
+                .beginTransaction()
+                .setCustomAnimations(
+                        R.anim.slide_in_up,
+                        R.anim.fade_out,
+                        R.anim.fade_in,
+                        R.anim.slide_out_down)
+                .replace(R.id.fragmentContainer, fragment)
+                .addToBackStack("my_listings")
+                .commit();
     }
     
     private void showEditProfileDialog() {

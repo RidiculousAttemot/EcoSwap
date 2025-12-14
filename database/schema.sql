@@ -61,6 +61,7 @@ CREATE TABLE public.posts (
     
     -- Classification
     category TEXT NOT NULL CHECK (category IN ('swap', 'donation', 'bidding', 'community', 'electronics', 'clothing', 'furniture', 'books', 'sports', 'other')),
+    listing_type TEXT DEFAULT 'swap' CHECK (listing_type IN ('swap', 'donation')),
     condition TEXT CHECK (condition IN ('new', 'like_new', 'good', 'fair', 'poor')),
     
     -- Location & Media
@@ -116,7 +117,8 @@ CREATE TABLE public.swaps (
     post2_id UUID REFERENCES public.posts(id) ON DELETE SET NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'completed', 'cancelled')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE
+    completed_at TIMESTAMP WITH TIME ZONE,
+    proof_photo_url TEXT
 );
 
 -- Enable RLS for swaps
@@ -146,7 +148,8 @@ CREATE TABLE public.donations (
     pickup_location TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'cancelled')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE
+    completed_at TIMESTAMP WITH TIME ZONE,
+    proof_photo_url TEXT
 );
 
 ALTER TABLE public.donations ENABLE ROW LEVEL SECURITY;
@@ -285,6 +288,9 @@ CREATE TABLE public.chats (
     sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     receiver_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
+    listing_id UUID REFERENCES public.posts(id) ON DELETE SET NULL,
+    listing_title_snapshot TEXT,
+    listing_image_url_snapshot TEXT,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

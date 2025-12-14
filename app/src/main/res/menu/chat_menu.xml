@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_mark_completed"
+        android:title="@string/chat_mark_success"
+        android:icon="@drawable/ic_check_circle"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_archive"
+        android:title="Archive"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_view_profile"
+        android:title="View Profile"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_report"
+        android:title="Report User"
+        android:icon="@android:drawable/ic_dialog_alert"
+        app:showAsAction="never" />
+</menu>

@@ -69,8 +69,7 @@
         android:padding="16dp"
         android:background="@drawable/bg_edit_text"
         android:clickable="true"
-        android:focusable="true"
-        android:layout_marginBottom="24dp">
+        android:focusable="true">
 
         <TextView
             android:layout_width="wrap_content"
@@ -80,13 +79,63 @@
             android:layout_marginEnd="8dp" />
 
         <TextView
+            android:id="@+id/tvAddPhotoLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Add Photo (Optional)"
             android:textColor="@color/text_secondary"
             android:textSize="14sp" />
 
+        <ImageView
+            android:id="@+id/ivSelectedPhoto"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginStart="12dp"
+            android:scaleType="centerCrop"
+            android:background="@drawable/bg_edit_text"
+            android:padding="2dp"
+            android:visibility="gone" />
+
     </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="start|center_vertical"
+        android:layout_marginTop="8dp">
+
+        <ProgressBar
+            android:id="@+id/progressUpload"
+            style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvUploadStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Uploading..."
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvUploadError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/error_red"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="16dp" />
 
     <!-- Action Buttons -->
     <LinearLayout

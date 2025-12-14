@@ -5,8 +5,6 @@
         <item>Furniture</item>
         <item>Books</item>
         <item>Sports</item>
-        <item>Swap</item>
-        <item>Donation</item>
         <item>Other</item>
     </string-array>
 
@@ -16,8 +14,6 @@
         <item>furniture</item>
         <item>books</item>
         <item>sports</item>
-        <item>swap</item>
-        <item>donation</item>
         <item>other</item>
     </string-array>
 

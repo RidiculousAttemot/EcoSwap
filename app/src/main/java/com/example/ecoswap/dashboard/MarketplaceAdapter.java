@@ -45,52 +45,62 @@ public class MarketplaceAdapter extends RecyclerView.Adapter<MarketplaceAdapter.
         
         holder.tvItemTitle.setText(item.getTitle());
         holder.tvLocation.setText(buildLocationLabel(item));
-        holder.tvPostedBy.setText(context.getString(R.string.posted_by_format, item.getPostedBy()));
+        holder.tvPostedBy.setText(item.getPostedBy());
         holder.tvCondition.setText(item.getDisplayCondition());
-        holder.chipCategory.setText(item.getDisplayCategory());
+        holder.tvCategory.setText(item.getDisplayCategory());
         
-        // Set category chip color based on category
-        int chipColor = R.color.chip_electronics;
+        // Set listing type badge
+        String listingType = item.getListingType();
+        if ("donation".equalsIgnoreCase(listingType)) {
+            holder.tvListingType.setText("Donation");
+            holder.tvListingType.setBackgroundResource(R.drawable.bg_chip_green); // Reuse green for donation
+        } else {
+            holder.tvListingType.setText("Swap");
+            holder.tvListingType.setBackgroundResource(R.drawable.bg_chip_blue);
+        }
+
+        // Set avatar
+        if (holder.ivAvatar != null && !TextUtils.isEmpty(item.getOwnerProfileImageUrl())) {
+            holder.ivAvatar.setVisibility(View.VISIBLE);
+            holder.tvAvatar.setVisibility(View.GONE);
+            Glide.with(context)
+                .load(item.getOwnerProfileImageUrl())
+                .circleCrop()
+                .placeholder(R.drawable.bg_circle_placeholder_small)
+                .into(holder.ivAvatar);
+        } else {
+            if (holder.ivAvatar != null) holder.ivAvatar.setVisibility(View.GONE);
+            holder.tvAvatar.setVisibility(View.VISIBLE);
+            holder.tvAvatar.setText(getInitials(item.getPostedBy()));
+        }
+
+        // Set category text color based on category
         int textColor = R.color.primary_blue;
         String categoryKey = item.getRawCategory() != null ? item.getRawCategory().toLowerCase() : "";
 
         switch (categoryKey) {
             case "electronics":
-                chipColor = R.color.chip_electronics;
                 textColor = R.color.primary_blue;
                 break;
             case "clothing":
-                chipColor = R.color.chip_clothing;
                 textColor = R.color.error_red;
                 break;
             case "books":
-                chipColor = R.color.chip_books;
                 textColor = R.color.warning_orange;
                 break;
             case "furniture":
-                chipColor = R.color.chip_furniture;
                 textColor = R.color.success_green;
                 break;
-            case "donation":
-                chipColor = R.color.chip_books;
-                textColor = R.color.primary_green;
-                break;
-            case "swap":
-                chipColor = R.color.chip_clothing;
-                textColor = R.color.primary_blue;
-                break;
             default:
-                chipColor = R.color.chip_electronics;
-                textColor = R.color.primary_blue;
+                textColor = R.color.primary_green;
                 break;
         }
         
-        holder.chipCategory.setChipBackgroundColorResource(chipColor);
-        holder.chipCategory.setTextColor(context.getResources().getColor(textColor, null));
+        holder.tvCategory.setTextColor(context.getResources().getColor(textColor, null));
         
-        if (!TextUtils.isEmpty(item.getImageUrl())) {
+        if (!TextUtils.isEmpty(item.getDisplayImageUrl())) {
             Glide.with(context)
-                    .load(item.getImageUrl())
+                    .load(item.getDisplayImageUrl())
                     .centerCrop()
                     .placeholder(R.drawable.ic_launcher_background)
                     .into(holder.ivItemImage);
@@ -103,6 +113,16 @@ public class MarketplaceAdapter extends RecyclerView.Adapter<MarketplaceAdapter.
                 clickListener.onListingClicked(item);
             }
         });
+    }
+
+    private String getInitials(String name) {
+        if (name == null || name.isEmpty()) return "?";
+        String[] parts = name.split(" ");
+        if (parts.length >= 2) {
+            return (parts[0].charAt(0) + "" + parts[1].charAt(0)).toUpperCase();
+        } else {
+            return name.substring(0, Math.min(2, name.length())).toUpperCase();
+        }
     }
     
     @Override
@@ -119,19 +139,20 @@ public class MarketplaceAdapter extends RecyclerView.Adapter<MarketplaceAdapter.
     }
     
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        ImageView ivItemImage, ivFavorite;
-        TextView tvItemTitle, tvLocation, tvPostedBy, tvCondition;
-        Chip chipCategory;
+        ImageView ivItemImage, ivAvatar;
+        TextView tvItemTitle, tvLocation, tvPostedBy, tvCondition, tvCategory, tvListingType, tvAvatar;
         
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             ivItemImage = itemView.findViewById(R.id.ivItemImage);
-            ivFavorite = itemView.findViewById(R.id.ivFavorite);
+            ivAvatar = itemView.findViewById(R.id.ivAvatar);
             tvItemTitle = itemView.findViewById(R.id.tvItemTitle);
             tvLocation = itemView.findViewById(R.id.tvLocation);
             tvPostedBy = itemView.findViewById(R.id.tvPostedBy);
             tvCondition = itemView.findViewById(R.id.tvCondition);
-            chipCategory = itemView.findViewById(R.id.chipCategory);
+            tvCategory = itemView.findViewById(R.id.tvCategory);
+            tvListingType = itemView.findViewById(R.id.tvListingType);
+            tvAvatar = itemView.findViewById(R.id.tvAvatar);
         }
     }
 

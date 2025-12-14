@@ -1,6 +1,9 @@
 package com.example.ecoswap.dashboard;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,16 +18,24 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.example.ecoswap.R;
 import com.example.ecoswap.utils.LocationFeatureCompat;
 import com.example.ecoswap.utils.LocationUtils;
 import com.example.ecoswap.utils.SessionManager;
 import com.example.ecoswap.utils.SupabaseClient;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.CancellationTokenSource;
 import com.google.android.material.chip.Chip;
 import okhttp3.HttpUrl;
 import org.json.JSONArray;
@@ -42,6 +53,7 @@ public class MarketplaceFragment extends Fragment {
     private static final String TAG = "MarketplaceFragment";
     private EditText etSearch;
     private Chip chipAll, chipElectronics, chipClothing, chipBooks, chipFurniture;
+    private Chip chipTypeAll, chipTypeSwap, chipTypeDonation;
     private RecyclerView rvItems;
     private ProgressBar progressListings;
     private TextView tvEmptyState;
@@ -49,6 +61,7 @@ public class MarketplaceFragment extends Fragment {
     private final List<MarketplaceItem> allItems = new ArrayList<>();
     private final List<MarketplaceItem> filteredItems = new ArrayList<>();
     private String selectedCategory = "All";
+    private String selectedListingType = "all";
     private String userLocation;
     private SupabaseClient supabaseClient;
     private SessionManager sessionManager;
@@ -56,6 +69,18 @@ public class MarketplaceFragment extends Fragment {
     private Double userLongitude;
     private final ExecutorService geocodeExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private FusedLocationProviderClient fusedLocationClient;
+    private CancellationTokenSource locationTokenSource;
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                Boolean fine = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
+                Boolean coarse = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false);
+                if ((fine != null && fine) || (coarse != null && coarse)) {
+                    fetchDeviceLocation();
+                } else {
+                    Log.w(TAG, "Location permission denied; falling back to profile location.");
+                }
+            });
 
     @Nullable
     @Override
@@ -67,6 +92,8 @@ public class MarketplaceFragment extends Fragment {
         setupRecyclerView();
         setupSearchListener();
         setupCategoryFilters();
+        setupListingTypeFilters();
+        requestDeviceLocation();
         fetchCurrentUserLocation();
         loadListingsFromSupabase();
 
@@ -80,6 +107,9 @@ public class MarketplaceFragment extends Fragment {
         chipClothing = view.findViewById(R.id.chipClothing);
         chipBooks = view.findViewById(R.id.chipBooks);
         chipFurniture = view.findViewById(R.id.chipFurniture);
+        chipTypeAll = view.findViewById(R.id.chipTypeAll);
+        chipTypeSwap = view.findViewById(R.id.chipTypeSwap);
+        chipTypeDonation = view.findViewById(R.id.chipTypeDonation);
         rvItems = view.findViewById(R.id.rvItems);
         progressListings = view.findViewById(R.id.progressListings);
         tvEmptyState = view.findViewById(R.id.tvEmptyState);
@@ -101,7 +131,9 @@ public class MarketplaceFragment extends Fragment {
 
     private void setupRecyclerView() {
         adapter = new MarketplaceAdapter(new ArrayList<>(), requireContext(), this::openListingPreview);
-        rvItems.setLayoutManager(new LinearLayoutManager(getContext()));
+        StaggeredGridLayoutManager layoutManager = new StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL);
+        layoutManager.setGapStrategy(StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS);
+        rvItems.setLayoutManager(layoutManager);
         rvItems.setAdapter(adapter);
     }
 
@@ -139,9 +171,52 @@ public class MarketplaceFragment extends Fragment {
         chipFurniture.setOnClickListener(categoryListener);
     }
 
+    private void setupListingTypeFilters() {
+        if (chipTypeAll == null) {
+            return;
+        }
+        View.OnClickListener typeListener = v -> {
+            resetTypeChipStyles();
+            Chip clicked = (Chip) v;
+            clicked.setChipBackgroundColorResource(R.color.primary_green);
+            clicked.setTextColor(getResources().getColor(R.color.text_white, null));
+
+            if (clicked == chipTypeAll) {
+                selectedListingType = "all";
+            } else if (clicked == chipTypeSwap) {
+                selectedListingType = "swap";
+            } else {
+                selectedListingType = "donation";
+            }
+
+            if (!"all".equals(selectedListingType)) {
+                selectedCategory = "All";
+                resetChipStyles();
+                chipAll.setChipBackgroundColorResource(R.color.primary_green);
+                chipAll.setTextColor(getResources().getColor(R.color.text_white, null));
+            }
+            applyFilters();
+        };
+
+        chipTypeAll.setOnClickListener(typeListener);
+        chipTypeSwap.setOnClickListener(typeListener);
+        chipTypeDonation.setOnClickListener(typeListener);
+    }
+
     private void resetChipStyles() {
         Chip[] chips = {chipAll, chipElectronics, chipClothing, chipBooks, chipFurniture};
         for (Chip chip : chips) {
+            chip.setChipBackgroundColorResource(R.color.background_white);
+            chip.setTextColor(getResources().getColor(R.color.text_primary, null));
+        }
+    }
+
+    private void resetTypeChipStyles() {
+        Chip[] chips = {chipTypeAll, chipTypeSwap, chipTypeDonation};
+        for (Chip chip : chips) {
+            if (chip == null) {
+                continue;
+            }
             chip.setChipBackgroundColorResource(R.color.background_white);
             chip.setTextColor(getResources().getColor(R.color.text_primary, null));
         }
@@ -184,6 +259,64 @@ public class MarketplaceFragment extends Fragment {
                 Log.w(TAG, "Unable to fetch user location: " + error);
             }
         });
+    }
+
+    private void requestDeviceLocation() {
+        if (!isAdded()) {
+            return;
+        }
+        if (hasLocationPermission()) {
+            fetchDeviceLocation();
+        } else {
+            locationPermissionLauncher.launch(new String[] {
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        }
+    }
+
+    private boolean hasLocationPermission() {
+        Context context = getContext();
+        if (context == null) {
+            return false;
+        }
+        return ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @SuppressLint("MissingPermission")
+    private void fetchDeviceLocation() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        if (!hasLocationPermission()) {
+            return;
+        }
+        if (fusedLocationClient == null) {
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+        }
+        final Context appContext = context.getApplicationContext();
+        cancelLocationRequest();
+        locationTokenSource = new CancellationTokenSource();
+        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, locationTokenSource.getToken())
+                .addOnSuccessListener(location -> {
+                    if (location == null) {
+                        Log.w(TAG, "Device location unavailable; using profile fallback.");
+                        return;
+                    }
+                    userLatitude = location.getLatitude();
+                    userLongitude = location.getLongitude();
+                    mainHandler.post(this::applyFilters);
+                    geocodeExecutor.execute(() -> {
+                        String resolvedAddress = LocationUtils.reverseGeocodeCoordinates(appContext, userLatitude, userLongitude);
+                        if (!TextUtils.isEmpty(resolvedAddress)) {
+                            userLocation = resolvedAddress;
+                            mainHandler.post(this::applyFilters);
+                        }
+                    });
+                })
+                .addOnFailureListener(error -> Log.e(TAG, "Failed to fetch device location", error));
     }
 
     private void geocodeUserCoordinates(String locationValue) {
@@ -252,15 +385,16 @@ public class MarketplaceFragment extends Fragment {
             return "/rest/v1/posts";
         }
 
-        String selectFields = "id,title,description,category,condition,location,image_url,user_id,status";
+        String selectFields = "id,title,description,category,listing_type,condition,location,image_url,user_id,status";
         if (includeCoordinates) {
             selectFields += ",latitude,longitude";
         }
-        selectFields += ",profiles(name,location)";
+        selectFields += ",profiles(name,location,profile_image_url)";
 
         HttpUrl url = baseUrl.newBuilder()
                 .addPathSegments("rest/v1/posts")
                 .addQueryParameter("select", selectFields)
+            .addQueryParameter("category", "neq.community")
                 .addQueryParameter("status", "eq.available")
                 .addQueryParameter("order", "created_at.desc")
                 .addQueryParameter("limit", "50")
@@ -293,6 +427,7 @@ public class MarketplaceFragment extends Fragment {
         item.setTitle(listing.optString("title", "Untitled listing"));
         item.setDescription(listing.optString("description"));
         item.setRawCategory(listing.optString("category", "other"));
+        item.setListingType(listing.optString("listing_type", "swap"));
         item.setDisplayCategory(formatCategoryLabel(item.getRawCategory()));
         item.setRawCondition(listing.optString("condition", "good"));
         item.setDisplayCondition(formatConditionLabel(item.getRawCondition()));
@@ -314,6 +449,11 @@ public class MarketplaceFragment extends Fragment {
             }
             if (TextUtils.isEmpty(listingLocation)) {
                 listingLocation = profile.optString("location", null);
+            }
+            
+            String profileImage = profile.optString("profile_image_url", null);
+            if (!TextUtils.isEmpty(profileImage)) {
+                item.setOwnerProfileImageUrl(profileImage);
             }
         }
 
@@ -342,6 +482,16 @@ public class MarketplaceFragment extends Fragment {
         boolean hasUserCoordinates = userLatitude != null && userLongitude != null;
 
         for (MarketplaceItem item : allItems) {
+            boolean matchesListingType = true;
+            if ("swap".equals(selectedListingType)) {
+                matchesListingType = "swap".equalsIgnoreCase(item.getListingType());
+            } else if ("donation".equals(selectedListingType)) {
+                matchesListingType = "donation".equalsIgnoreCase(item.getListingType());
+            }
+            if (!matchesListingType) {
+                continue;
+            }
+
             boolean matchesCategory = TextUtils.isEmpty(categoryKey) || categoryKey.equalsIgnoreCase(item.getRawCategory());
             boolean matchesQuery = searchQuery.isEmpty() || matchesQuery(item, searchQuery);
 
@@ -504,6 +654,19 @@ public class MarketplaceFragment extends Fragment {
         return lower.contains("42703") || (lower.contains("column") && (lower.contains("latitude") || lower.contains("longitude")));
     }
 
+    private void cancelLocationRequest() {
+        if (locationTokenSource != null) {
+            locationTokenSource.cancel();
+            locationTokenSource = null;
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        cancelLocationRequest();
+    }
+
     // Inner class for marketplace items
     public static class MarketplaceItem {
         private String id;
@@ -512,6 +675,7 @@ public class MarketplaceFragment extends Fragment {
         private String location;
         private String postedBy;
         private String rawCategory;
+        private String listingType;
         private String displayCategory;
         private String rawCondition;
         private String displayCondition;
@@ -521,6 +685,7 @@ public class MarketplaceFragment extends Fragment {
         private Double latitude;
         private Double longitude;
         private Double distanceKm;
+        private String ownerProfileImageUrl;
 
         public String getId() { return id; }
         public void setId(String id) { this.id = id; }
@@ -540,6 +705,9 @@ public class MarketplaceFragment extends Fragment {
         public String getRawCategory() { return rawCategory; }
         public void setRawCategory(String rawCategory) { this.rawCategory = rawCategory; }
 
+        public String getListingType() { return listingType; }
+        public void setListingType(String listingType) { this.listingType = listingType; }
+
         public String getDisplayCategory() { return displayCategory; }
         public void setDisplayCategory(String displayCategory) { this.displayCategory = displayCategory; }
 
@@ -550,10 +718,38 @@ public class MarketplaceFragment extends Fragment {
         public void setDisplayCondition(String displayCondition) { this.displayCondition = displayCondition; }
 
         public String getImageUrl() { return imageUrl; }
+        
+        public String getDisplayImageUrl() {
+            if (imageUrl != null && imageUrl.contains(",")) {
+                return imageUrl.split(",")[0].trim();
+            }
+            return imageUrl;
+        }
+
         public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+        public List<String> getAllImages() {
+            List<String> images = new ArrayList<>();
+            if (imageUrl != null) {
+                if (imageUrl.contains(",")) {
+                    String[] parts = imageUrl.split(",");
+                    for (String part : parts) {
+                        if (!TextUtils.isEmpty(part.trim())) {
+                            images.add(part.trim());
+                        }
+                    }
+                } else {
+                    images.add(imageUrl);
+                }
+            }
+            return images;
+        }
 
         public String getOwnerId() { return ownerId; }
         public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
+
+        public String getOwnerProfileImageUrl() { return ownerProfileImageUrl; }
+        public void setOwnerProfileImageUrl(String ownerProfileImageUrl) { this.ownerProfileImageUrl = ownerProfileImageUrl; }
 
         public boolean isNearUser() { return nearUser; }
         public void setNearUser(boolean nearUser) { this.nearUser = nearUser; }

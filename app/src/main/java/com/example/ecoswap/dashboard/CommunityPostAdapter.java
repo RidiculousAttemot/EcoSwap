@@ -1,26 +1,42 @@
 package com.example.ecoswap.dashboard;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import com.bumptech.glide.Glide;
 import com.example.ecoswap.R;
+import com.example.ecoswap.utils.SupabaseClient;
 import com.google.android.material.chip.Chip;
+import com.google.gson.JsonObject;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import java.util.List;
 
 public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdapter.PostViewHolder> {
 
     private List<CommunityFragment.CommunityPost> posts;
     private Context context;
+    private SupabaseClient supabaseClient;
 
     public CommunityPostAdapter(List<CommunityFragment.CommunityPost> posts, Context context) {
         this.posts = posts;
         this.context = context;
+        this.supabaseClient = SupabaseClient.getInstance(context);
     }
 
     @NonNull
@@ -35,7 +51,6 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
         CommunityFragment.CommunityPost post = posts.get(position);
 
-        holder.tvUserAvatar.setText(post.getUserAvatar());
         holder.tvUserName.setText(post.getUserName());
         holder.tvPostTime.setText(post.getPostTime());
         holder.tvPostContent.setText(post.getContent());
@@ -43,9 +58,40 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
         holder.tvCommentCount.setText(String.valueOf(post.getCommentCount()));
         holder.chipCategory.setText(post.getCategory());
 
+        // Load User Avatar (photo or initials fallback)
+        holder.ivUserAvatar.setVisibility(View.GONE);
+        holder.tvUserAvatar.setVisibility(View.VISIBLE);
+        String avatarUrl = post.getUserAvatar();
+        if (!TextUtils.isEmpty(avatarUrl)) {
+            holder.tvUserAvatar.setVisibility(View.INVISIBLE);
+            holder.ivUserAvatar.setVisibility(View.VISIBLE);
+            Glide.with(context)
+                    .load(avatarUrl)
+                    .circleCrop()
+                    .listener(new RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(GlideException e, Object model, Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            holder.ivUserAvatar.setVisibility(View.GONE);
+                            holder.tvUserAvatar.setVisibility(View.VISIBLE);
+                            holder.tvUserAvatar.setText(getInitials(post.getUserName()));
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, Target<android.graphics.drawable.Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            return false;
+                        }
+                    })
+                    .into(holder.ivUserAvatar);
+        }
+        if (holder.ivUserAvatar.getVisibility() != View.VISIBLE) {
+            holder.tvUserAvatar.setText(getInitials(post.getUserName()));
+        }
+
         // Set chip color based on category
         int chipColorRes;
-        switch (post.getCategory()) {
+        String category = post.getCategory() != null ? post.getCategory() : "";
+        switch (category) {
             case "Swap Story":
                 chipColorRes = R.color.chip_electronics;
                 break;
@@ -63,22 +109,76 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
         }
         holder.chipCategory.setChipBackgroundColorResource(chipColorRes);
 
-        // Like button click
+        // Load Post Image only when present; hide otherwise
+        holder.ivPostImage.setVisibility(View.GONE);
+        String imageUrl = post.getImageUrl();
+        if (!TextUtils.isEmpty(imageUrl)) {
+            holder.ivPostImage.setVisibility(View.VISIBLE);
+            Glide.with(context)
+                    .load(imageUrl)
+                    .centerCrop()
+                    .listener(new RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(GlideException e, Object model, Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            holder.ivPostImage.setVisibility(View.GONE);
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, Target<android.graphics.drawable.Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            return false;
+                        }
+                    })
+                    .into(holder.ivPostImage);
+        }
+
+        // Like button click with server-backed update
         holder.layoutLike.setOnClickListener(v -> {
-            post.setLikeCount(post.getLikeCount() + 1);
-            holder.tvLikeCount.setText(String.valueOf(post.getLikeCount()));
-            Toast.makeText(context, "Liked! ❤️", Toast.LENGTH_SHORT).show();
+            int current = Math.max(0, post.getLikeCount());
+            int newCount = current + 1;
+            holder.tvLikeCount.setText(String.valueOf(newCount));
+            post.setLikeCount(newCount);
+
+            JsonObject payload = new JsonObject();
+            payload.addProperty("likes", newCount);
+            supabaseClient.update("posts", post.getId(), payload, new SupabaseClient.OnDatabaseCallback() {
+                @Override
+                public void onSuccess(Object data) {
+                    // keep optimistic count
+                }
+
+                @Override
+                public void onError(String error) {
+                    // revert to previous count on failure
+                    post.setLikeCount(current);
+                    holder.tvLikeCount.setText(String.valueOf(current));
+                    Toast.makeText(context, "Unable to like right now", Toast.LENGTH_SHORT).show();
+                }
+            });
         });
 
         // Comment button click
         holder.layoutComment.setOnClickListener(v -> {
-            Toast.makeText(context, "Comments coming soon! 💬", Toast.LENGTH_SHORT).show();
+            if (context instanceof androidx.fragment.app.FragmentActivity) {
+                CommentsBottomSheet bottomSheet = CommentsBottomSheet.newInstance(post.getId());
+                bottomSheet.show(((androidx.fragment.app.FragmentActivity) context).getSupportFragmentManager(), "CommentsBottomSheet");
+            } else {
+                Toast.makeText(context, "Cannot open comments", Toast.LENGTH_SHORT).show();
+            }
         });
 
-        // Share button click
-        holder.layoutShare.setOnClickListener(v -> {
-            Toast.makeText(context, "Share coming soon! 🔗", Toast.LENGTH_SHORT).show();
-        });
+        // More options (three dots)
+        holder.btnMoreOptions.setOnClickListener(v -> showMoreOptions(v, post));
+    }
+    
+    private String getInitials(String name) {
+        if (name == null || name.isEmpty()) return "?";
+        String[] parts = name.split(" ");
+        if (parts.length >= 2) {
+            return (parts[0].charAt(0) + "" + parts[1].charAt(0)).toUpperCase();
+        } else {
+            return name.substring(0, Math.min(2, name.length())).toUpperCase();
+        }
     }
 
     @Override
@@ -90,7 +190,9 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
         TextView tvUserAvatar, tvUserName, tvPostTime, tvPostContent;
         TextView tvLikeCount, tvCommentCount;
         Chip chipCategory;
-        LinearLayout layoutLike, layoutComment, layoutShare;
+        LinearLayout layoutLike, layoutComment;
+        ImageView ivPostImage, ivUserAvatar;
+        TextView btnMoreOptions;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -103,7 +205,33 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
             chipCategory = itemView.findViewById(R.id.chipCategory);
             layoutLike = itemView.findViewById(R.id.layoutLike);
             layoutComment = itemView.findViewById(R.id.layoutComment);
-            layoutShare = itemView.findViewById(R.id.layoutShare);
+            ivPostImage = itemView.findViewById(R.id.ivPostImage);
+            ivUserAvatar = itemView.findViewById(R.id.ivUserAvatar);
+            btnMoreOptions = itemView.findViewById(R.id.btnMoreOptions);
         }
+    }
+
+    private void showMoreOptions(View anchor, CommunityFragment.CommunityPost post) {
+        PopupMenu popup = new PopupMenu(context, anchor);
+        popup.getMenu().add(0, 1, 0, "Copy text");
+        popup.getMenu().add(0, 3, 1, "Report");
+
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == 1) {
+                ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    ClipData clip = ClipData.newPlainText("Community Post", post.getContent());
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            } else if (id == 3) {
+                Toast.makeText(context, "Reported. Thank you for the feedback.", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            return false;
+        });
+        popup.show();
     }
 }

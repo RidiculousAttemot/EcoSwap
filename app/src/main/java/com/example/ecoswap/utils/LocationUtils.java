@@ -68,6 +68,38 @@ public final class LocationUtils {
         return String.format(Locale.getDefault(), "%.0f km away", distanceKm);
     }
 
+    /**
+     * Reverse geocode coordinates to a descriptive label that can prefill a text field.
+     */
+    @Nullable
+    public static String reverseGeocodeCoordinates(@NonNull Context context, double latitude, double longitude) {
+        try {
+            Geocoder geocoder = new Geocoder(context.getApplicationContext(), Locale.getDefault());
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                String fullAddress = address.getAddressLine(0);
+                if (!TextUtils.isEmpty(fullAddress)) {
+                    return fullAddress;
+                }
+                String locality = address.getLocality();
+                String adminArea = address.getAdminArea();
+                if (!TextUtils.isEmpty(locality) && !TextUtils.isEmpty(adminArea)) {
+                    return locality + ", " + adminArea;
+                }
+                if (!TextUtils.isEmpty(locality)) {
+                    return locality;
+                }
+                if (!TextUtils.isEmpty(adminArea)) {
+                    return adminArea;
+                }
+            }
+        } catch (IOException | IllegalArgumentException geocodeError) {
+            Log.w(TAG, "Failed to reverse geocode coordinates", geocodeError);
+        }
+        return null;
+    }
+
     public static final class Coordinates {
         private final double latitude;
         private final double longitude;

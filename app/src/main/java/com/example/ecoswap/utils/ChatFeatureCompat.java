@@ -31,6 +31,10 @@ public final class ChatFeatureCompat {
             return false;
         }
         String lower = error.toLowerCase(Locale.US);
-        return lower.contains("42703") || lower.contains("listing_id") || lower.contains("chats_listing_id_fkey");
+        return lower.contains("42703")
+            || lower.contains("listing_id")
+            || lower.contains("chats_listing_id_fkey")
+            || lower.contains("listing_title_snapshot")
+            || lower.contains("listing_image_url_snapshot");
     }
 }

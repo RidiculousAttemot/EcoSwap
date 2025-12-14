@@ -23,11 +23,15 @@ android {
         
         val storageBucket = properties.getProperty("SUPABASE_STORAGE_BUCKET", "ecoswap-images")
         val listingsBucket = properties.getProperty("SUPABASE_LISTINGS_BUCKET", "listing-photos")
+        val proofsBucket = properties.getProperty("SUPABASE_PROOFS_BUCKET", "trade-proofs")
+        val communityBucket = properties.getProperty("SUPABASE_COMMUNITY_BUCKET", "community-photos")
 
         buildConfigField("String", "SUPABASE_URL", "\"${properties.getProperty("SUPABASE_URL", "")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${properties.getProperty("SUPABASE_ANON_KEY", "")}\"")
         buildConfigField("String", "SUPABASE_STORAGE_BUCKET", "\"$storageBucket\"")
         buildConfigField("String", "SUPABASE_LISTINGS_BUCKET", "\"$listingsBucket\"")
+        buildConfigField("String", "SUPABASE_PROOFS_BUCKET", "\"$proofsBucket\"")
+        buildConfigField("String", "SUPABASE_COMMUNITY_BUCKET", "\"$communityBucket\"")
     }
 
     buildTypes {
@@ -67,6 +71,9 @@ dependencies {
     // Image loading
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
+    // Location services
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

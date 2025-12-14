@@ -6,16 +6,20 @@
     android:layout_height="match_parent"
     android:background="@color/background_light">
 
-    <ScrollView
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:layout_height="wrap_content"
+        android:background="@color/background_light"
+        app:elevation="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingHorizontal="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp"
+            app:layout_scrollFlags="scroll|enterAlways">
 
             <!-- App Title -->
             <TextView
@@ -23,7 +27,7 @@
                 android:layout_height="wrap_content"
                 android:text="EcoSwap"
                 android:textColor="@color/primary_green"
-                android:textSize="24sp"
+                android:textSize="28sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="16dp" />
 
@@ -31,8 +35,9 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="25dp"
-                app:cardElevation="2dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/white"
                 android:layout_marginBottom="16dp">
 
                 <LinearLayout
@@ -43,11 +48,12 @@
                     android:gravity="center_vertical">
 
                     <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
                         android:src="@android:drawable/ic_menu_search"
                         android:contentDescription="Search"
-                        android:layout_marginEnd="8dp" />
+                        app:tint="@color/text_secondary"
+                        android:layout_marginEnd="12dp" />
 
                     <EditText
                         android:id="@+id/etSearch"
@@ -55,21 +61,72 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:background="@null"
-                        android:hint="Search items to swap..."
+                        android:hint="Search items..."
                         android:textColorHint="@color/text_hint"
-                        android:textSize="14sp"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
                         android:inputType="text" />
 
                 </LinearLayout>
 
             </androidx.cardview.widget.CardView>
 
+            <!-- Listing Type Filters -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:scrollbars="none"
+                android:clipToPadding="false">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipTypeAll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:text="@string/listing_type_all"
+                        android:textStyle="bold"
+                        app:chipBackgroundColor="@color/primary_green"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_white"
+                        app:chipMinHeight="32dp" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipTypeSwap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:text="@string/listing_type_swap"
+                        app:chipBackgroundColor="@color/white"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_primary"
+                        app:chipMinHeight="32dp" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipTypeDonation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/listing_type_donation"
+                        app:chipBackgroundColor="@color/white"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_primary"
+                        app:chipMinHeight="32dp" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
+
             <!-- Category Chips -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none"
-                android:layout_marginBottom="16dp">
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -85,7 +142,8 @@
                         android:layout_marginEnd="8dp"
                         app:chipBackgroundColor="@color/primary_green"
                         app:chipStrokeWidth="0dp"
-                        android:textColor="@color/text_white" />
+                        android:textColor="@color/text_white"
+                        app:chipMinHeight="32dp" />
 
                     <!-- Electronics -->
                     <com.google.android.material.chip.Chip
@@ -94,10 +152,10 @@
                         android:layout_height="wrap_content"
                         android:text="Electronics"
                         android:layout_marginEnd="8dp"
-                        app:chipBackgroundColor="@color/background_white"
-                        app:chipStrokeWidth="1dp"
-                        app:chipStrokeColor="@color/border_light"
-                        android:textColor="@color/text_primary" />
+                        app:chipBackgroundColor="@color/white"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_primary"
+                        app:chipMinHeight="32dp" />
 
                     <!-- Clothing -->
                     <com.google.android.material.chip.Chip
@@ -106,10 +164,10 @@
                         android:layout_height="wrap_content"
                         android:text="Clothing"
                         android:layout_marginEnd="8dp"
-                        app:chipBackgroundColor="@color/background_white"
-                        app:chipStrokeWidth="1dp"
-                        app:chipStrokeColor="@color/border_light"
-                        android:textColor="@color/text_primary" />
+                        app:chipBackgroundColor="@color/white"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_primary"
+                        app:chipMinHeight="32dp" />
 
                     <!-- Books -->
                     <com.google.android.material.chip.Chip
@@ -118,10 +176,10 @@
                         android:layout_height="wrap_content"
                         android:text="Books"
                         android:layout_marginEnd="8dp"
-                        app:chipBackgroundColor="@color/background_white"
-                        app:chipStrokeWidth="1dp"
-                        app:chipStrokeColor="@color/border_light"
-                        android:textColor="@color/text_primary" />
+                        app:chipBackgroundColor="@color/white"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_primary"
+                        app:chipMinHeight="32dp" />
 
                     <!-- Furniture -->
                     <com.google.android.material.chip.Chip
@@ -129,46 +187,55 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Furniture"
-                        app:chipBackgroundColor="@color/background_white"
-                        app:chipStrokeWidth="1dp"
-                        app:chipStrokeColor="@color/border_light"
-                        android:textColor="@color/text_primary" />
+                        app:chipBackgroundColor="@color/white"
+                        app:chipStrokeWidth="0dp"
+                        android:textColor="@color/text_primary"
+                        app:chipMinHeight="32dp" />
 
                 </LinearLayout>
 
             </HorizontalScrollView>
 
-            <!-- Loading indicator -->
-            <ProgressBar
-                android:id="@+id/progressListings"
-                style="?android:attr/progressBarStyleLarge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="12dp"
-                android:visibility="gone" />
-
-            <!-- Empty state text -->
-            <TextView
-                android:id="@+id/tvEmptyState"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="No listings yet in your area."
-                android:textAlignment="center"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp"
-                android:layout_marginTop="12dp"
-                android:visibility="gone" />
-
-            <!-- Items RecyclerView -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvItems"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
         </LinearLayout>
 
-    </ScrollView>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <!-- Items RecyclerView -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvItems"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="80dp" />
+
+        <!-- Loading indicator -->
+        <ProgressBar
+            android:id="@+id/progressListings"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!-- Empty state text -->
+        <TextView
+            android:id="@+id/tvEmptyState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="No listings yet in your area."
+            android:textAlignment="center"
+            android:textColor="@color/text_secondary"
+            android:textSize="16sp"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

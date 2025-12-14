@@ -23,17 +23,32 @@
             android:layout_marginBottom="12dp">
 
             <!-- User Avatar -->
-            <TextView
-                android:id="@+id/tvUserAvatar"
+            <FrameLayout
                 android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:gravity="center"
-                android:text="@string/profile_avatar_placeholder"
-                android:textColor="@color/primary_green"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:background="@drawable/bg_circle_white"
-                android:backgroundTint="@color/chip_furniture" />
+                android:layout_height="40dp">
+
+                <ImageView
+                    android:id="@+id/ivUserAvatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:background="@drawable/bg_circle_white"
+                    android:backgroundTint="@color/chip_furniture"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvUserAvatar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="@string/profile_avatar_placeholder"
+                    android:textColor="@color/primary_green"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:background="@drawable/bg_circle_white"
+                    android:backgroundTint="@color/chip_furniture" />
+
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -61,15 +76,37 @@
 
             </LinearLayout>
 
-            <!-- Category Badge -->
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipCategory"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Swap Story"
-                android:textSize="10sp"
-                app:chipBackgroundColor="@color/chip_electronics"
-                app:chipMinHeight="24dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Category Badge -->
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chipCategory"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Swap Story"
+                    android:textSize="10sp"
+                    app:chipBackgroundColor="@color/chip_electronics"
+                    app:chipMinHeight="24dp" />
+
+                <!-- More Options -->
+                <TextView
+                    android:id="@+id/btnMoreOptions"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:text="⋮"
+                    android:textSize="20sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginStart="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="@string/more_options" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -152,34 +189,6 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/profile_stat_placeholder"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:layout_marginStart="4dp" />
-
-            </LinearLayout>
-
-            <!-- Share Button -->
-            <LinearLayout
-                android:id="@+id/layoutShare"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="8dp"
-                android:layout_marginStart="16dp"
-                android:clickable="true"
-                android:focusable="true">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🔗"
-                    android:textSize="18sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Share"
                     android:textColor="@color/text_secondary"
                     android:textSize="14sp"
                     android:layout_marginStart="4dp" />

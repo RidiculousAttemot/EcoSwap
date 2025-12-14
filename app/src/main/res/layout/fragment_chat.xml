@@ -5,63 +5,237 @@
     android:layout_height="match_parent"
     android:background="@color/background_light">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/chatToolbar"
+    <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/background_white"
-        app:navigationIcon="@android:drawable/ic_menu_close_clear_cancel"
-        app:title="@string/chat_title"
-        app:titleTextColor="@color/text_primary" />
+        app:elevation="0dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:layout_marginTop="56dp">
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/chatToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/background_white"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:title="@string/chat_title"
+            app:titleCentered="true"
+            app:titleTextColor="@color/text_primary"
+            app:elevation="0dp" />
 
-        <LinearLayout
+        <!-- Listing Context Bar -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardListingContext"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="8dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/border_light"
+            app:strokeWidth="1dp"
+            app:cardBackgroundColor="@color/background_light">
 
-            <ImageView
-                android:id="@+id/ivListingPreview"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:scaleType="centerCrop"
-                android:contentDescription="Listing preview"
-                android:background="@drawable/bg_circle_white" />
-
-            <TextView
-                android:id="@+id/tvListingTitle"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_weight="1"
-                android:textColor="@color/text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:maxLines="2"
-                android:ellipsize="end" />
-        </LinearLayout>
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="12dp">
+
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/ivListingPreview"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="Listing preview"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.EcoSwap.CornerSize15Percent"
+                        android:background="@color/background_white" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvListingTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:ellipsize="end" />
+
+                        <TextView
+                            android:id="@+id/tvListingStatusLabel"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/primary_green"
+                            android:textSize="12sp"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:visibility="gone" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnToggleListingCard"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Details"
+                        android:textColor="@color/primary_green"
+                        android:textSize="12sp"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="8dp" />
+                </LinearLayout>
+
+                <!-- Expanded Details -->
+                <LinearLayout
+                    android:id="@+id/layoutListingDetails"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="12dp"
+                    android:paddingBottom="12dp"
+                    android:visibility="gone">
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/border_light"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tvListingCategoryLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="4dp"/>
+
+                    <TextView
+                        android:id="@+id/tvTradeHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/chat_trade_hint"
+                        android:textColor="@color/text_hint"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="12dp"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnListingMarkComplete"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/chat_mark_success"
+                        android:textAllCaps="false"
+                        app:strokeColor="@color/primary_green"
+                        android:textColor="@color/primary_green"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardPeerCompletion"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:strokeColor="@color/border_light"
+            app:strokeWidth="1dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/tvPeerCompletionTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/chat_peer_marked_title"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="end">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPeerDismiss"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/chat_peer_marked_dismiss"
+                        android:textAllCaps="false"
+                        android:textColor="@color/text_secondary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPeerAccept"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/chat_peer_marked_accept"
+                        android:textAllCaps="false"
+                        android:textColor="@color/primary_green"
+                        app:strokeColor="@color/primary_green" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvChatMessages"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginTop="16dp" />
+            android:clipToPadding="false"
+            android:paddingBottom="16dp"
+            app:layout_constraintTop_toBottomOf="@id/cardPeerCompletion"
+            app:layout_constraintBottom_toTopOf="@id/layoutInput"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <LinearLayout
+            android:id="@+id/layoutInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="8dp"
-            android:background="@drawable/bg_edit_text">
+            android:gravity="bottom"
+            android:padding="12dp"
+            android:background="@color/background_white"
+            android:elevation="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
             <EditText
                 android:id="@+id/etMessage"
@@ -71,27 +245,55 @@
                 android:hint="@string/chat_hint"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_hint"
-                android:background="@android:color/transparent"
-                android:padding="8dp" />
+                android:background="@drawable/bg_edit_text_rounded"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="12dp"
+                android:maxLines="4"
+                android:inputType="textCapSentences|textMultiLine"
+                android:layout_marginEnd="12dp" />
 
-            <ImageButton
-                android:id="@+id/btnSend"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@android:drawable/ic_menu_send"
-                android:background="@drawable/bg_circle_white"
-                android:tint="@color/primary_green"
-                android:contentDescription="Send" />
-
-            <ProgressBar
-                android:id="@+id/progressSending"
-                style="@android:style/Widget.ProgressBar.Small"
+            <FrameLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:layout_marginStart="8dp" />
+                android:layout_height="wrap_content">
+
+                <ImageButton
+                    android:id="@+id/btnSend"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_send_rounded"
+                    android:background="@drawable/bg_circle_primary"
+                    android:tint="@color/white"
+                    android:contentDescription="Send"
+                    android:scaleType="centerInside"
+                    android:padding="12dp"/>
+
+                <ProgressBar
+                    android:id="@+id/progressSending"
+                    style="@android:style/Widget.ProgressBar.Small"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:visibility="gone"
+                    android:indeterminateTint="@color/white"/>
+            </FrameLayout>
+
         </LinearLayout>
 
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fabMarkListingComplete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="90dp"
+        android:text="@string/chat_mark_success"
+        android:textAllCaps="false"
+        android:visibility="gone"
+        app:icon="@drawable/ic_check_circle"
+        app:iconTint="@color/white"
+        app:backgroundTint="@color/primary_green"
+        app:rippleColor="@color/white" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

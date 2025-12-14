@@ -40,62 +40,86 @@
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
 
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardAddPhoto"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
 
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent">
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardAddPhoto"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginEnd="8dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp">
 
                 <LinearLayout
-                    android:id="@+id/layoutAddPhoto"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:background="@color/background_white">
 
                     <ImageView
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
                         android:src="@android:drawable/ic_menu_camera"
-                        android:tint="@color/text_secondary"
+                        app:tint="@color/primary_green"
                         android:contentDescription="Add photos" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Tap to add a cover photo"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="14sp"
-                        android:layout_marginTop="8dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Recommended 1:1 square"
-                        android:textColor="@color/text_hint"
+                        android:text="Add"
+                        android:textColor="@color/primary_green"
                         android:textSize="12sp"
                         android:layout_marginTop="4dp" />
 
                 </LinearLayout>
 
-                <ImageView
-                    android:id="@+id/ivListingPreview"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:contentDescription="Listing photo preview"
-                    android:visibility="gone" />
+            </androidx.cardview.widget.CardView>
 
-            </FrameLayout>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvSelectedImages"
+                android:layout_width="match_parent"
+                android:layout_height="100dp"
+                android:orientation="horizontal" />
 
-        </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+        <!-- Listing Type -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Listing Type"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgListingType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <RadioButton
+                android:id="@+id/rbSwap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Swap"
+                android:checked="true"
+                android:layout_marginEnd="16dp" />
+
+            <RadioButton
+                android:id="@+id/rbDonation"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Donation" />
+
+        </RadioGroup>
 
         <!-- Item Title -->
         <TextView

@@ -13,6 +13,7 @@ import com.example.ecoswap.R;
 import com.example.ecoswap.dashboard.DashboardActivity;
 import com.example.ecoswap.utils.SupabaseClient;
 import com.example.ecoswap.utils.SessionManager;
+import com.example.ecoswap.utils.NetworkUtils;
 
 public class LoginActivity extends AppCompatActivity {
     
@@ -78,6 +79,12 @@ public class LoginActivity extends AppCompatActivity {
             Toast.makeText(this, "Please enter a valid email", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        // Connectivity check
+        if (!NetworkUtils.isOnline(this)) {
+            Toast.makeText(this, "No internet connection. Please check Wi‑Fi/Data.", Toast.LENGTH_LONG).show();
+            return;
+        }
         
         // Disable button
         btnLogin.setEnabled(false);
@@ -118,11 +125,16 @@ public class LoginActivity extends AppCompatActivity {
                 btnLogin.setText("Login");
                 
                 // Show error message
-                String errorMsg = "Login failed";
-                if (error.contains("Invalid login credentials") || error.contains("Invalid")) {
-                    errorMsg = "Invalid email or password";
-                } else if (error.contains("Email not confirmed")) {
-                    errorMsg = "Please confirm your email first";
+                String lower = error != null ? error.toLowerCase() : "";
+                String errorMsg;
+                if (lower.contains("unable to resolve host") || lower.contains("failed to connect") || lower.contains("network error")) {
+                    errorMsg = "Network error. Check your connection and try again.";
+                } else if (lower.contains("invalid login credentials") || lower.contains("invalid")) {
+                    errorMsg = "Invalid email or password.";
+                } else if (lower.contains("email not confirmed")) {
+                    errorMsg = "Please confirm your email first.";
+                } else {
+                    errorMsg = error != null ? error : "Login failed";
                 }
                 
                 Toast.makeText(LoginActivity.this, errorMsg, Toast.LENGTH_LONG).show();
