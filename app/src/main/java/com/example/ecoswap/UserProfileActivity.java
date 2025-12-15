@@ -16,6 +16,7 @@ import com.google.gson.JsonArray;
 import com.example.ecoswap.R;
 import com.example.ecoswap.dashboard.DashboardActivity;
 import com.example.ecoswap.utils.SupabaseClient;
+import com.example.ecoswap.utils.SessionManager;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -84,7 +85,6 @@ public class UserProfileActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         btnMessage.setOnClickListener(v -> {
-            // TODO: Navigate to chat with this user
             Intent intent = new Intent(this, DashboardActivity.class);
             intent.putExtra("TARGET_FRAGMENT", "messages");
             intent.putExtra("CHAT_USER_ID", userId);
@@ -93,7 +93,6 @@ public class UserProfileActivity extends AppCompatActivity {
         });
 
         btnViewListings.setOnClickListener(v -> {
-            // TODO: Navigate to marketplace filtered by this user
             Intent intent = new Intent(this, DashboardActivity.class);
             intent.putExtra("TARGET_FRAGMENT", "marketplace");
             intent.putExtra("FILTER_USER_ID", userId);
@@ -247,9 +246,49 @@ public class UserProfileActivity extends AppCompatActivity {
     }
 
     private void loadRecentActivity() {
-        // TODO: Implement loading recent listings, swaps, or community posts
-        // For now, show placeholder
-        tvRecentActivity.setText("No recent activity to display");
+        String endpoint = String.format(Locale.US,
+                "/rest/v1/posts?user_id=eq.%s&order=created_at.desc&select=title,created_at,status&limit=3",
+                userId);
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    com.google.gson.Gson gson = new com.google.gson.Gson();
+                    JsonArray result = gson.fromJson(data.toString(), JsonArray.class);
+                    if (result == null || result.size() == 0) {
+                        tvRecentActivity.setText("No recent activity to display");
+                        return;
+                    }
+                    StringBuilder builder = new StringBuilder();
+                    for (int i = 0; i < result.size(); i++) {
+                        JsonObject obj = result.get(i).getAsJsonObject();
+                        String title = obj.has("title") && !obj.get("title").isJsonNull()
+                                ? obj.get("title").getAsString()
+                                : "Listing";
+                        String status = obj.has("status") && !obj.get("status").isJsonNull()
+                                ? obj.get("status").getAsString()
+                                : "";
+                        String createdAt = obj.has("created_at") && !obj.get("created_at").isJsonNull()
+                                ? obj.get("created_at").getAsString()
+                                : "";
+                        String when = formatMemberSince(createdAt);
+                        builder.append("• ").append(title);
+                        if (!status.isEmpty()) {
+                            builder.append(" (" + status + ")");
+                        }
+                        builder.append(" – ").append(when).append("\n");
+                    }
+                    tvRecentActivity.setText(builder.toString().trim());
+                } catch (Exception e) {
+                    tvRecentActivity.setText("No recent activity to display");
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                tvRecentActivity.setText("No recent activity to display");
+            }
+        });
     }
 
     private String getInitials(String name) {

@@ -14,11 +14,13 @@ import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.Nullable;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.ecoswap.R;
 import com.example.ecoswap.utils.SupabaseClient;
+import com.example.ecoswap.utils.SessionManager;
 import com.google.android.material.chip.Chip;
 import com.google.gson.JsonObject;
 import com.bumptech.glide.load.DataSource;
@@ -32,11 +34,13 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
     private List<CommunityFragment.CommunityPost> posts;
     private Context context;
     private SupabaseClient supabaseClient;
+    private SessionManager sessionManager;
 
     public CommunityPostAdapter(List<CommunityFragment.CommunityPost> posts, Context context) {
         this.posts = posts;
         this.context = context;
         this.supabaseClient = SupabaseClient.getInstance(context);
+        this.sessionManager = SessionManager.getInstance(context);
     }
 
     @NonNull
@@ -144,7 +148,7 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
             supabaseClient.update("posts", post.getId(), payload, new SupabaseClient.OnDatabaseCallback() {
                 @Override
                 public void onSuccess(Object data) {
-                    // keep optimistic count
+                    sendNotification("like", "liked your post", post.getOwnerId(), post.getId(), null);
                 }
 
                 @Override
@@ -160,7 +164,7 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
         // Comment button click
         holder.layoutComment.setOnClickListener(v -> {
             if (context instanceof androidx.fragment.app.FragmentActivity) {
-                CommentsBottomSheet bottomSheet = CommentsBottomSheet.newInstance(post.getId());
+                CommentsBottomSheet bottomSheet = CommentsBottomSheet.newInstance(post.getId(), post.getOwnerId());
                 bottomSheet.show(((androidx.fragment.app.FragmentActivity) context).getSupportFragmentManager(), "CommentsBottomSheet");
             } else {
                 Toast.makeText(context, "Cannot open comments", Toast.LENGTH_SHORT).show();
@@ -233,5 +237,34 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
             return false;
         });
         popup.show();
+    }
+
+    private void sendNotification(String type, String message, String recipientId, String postId, @Nullable String commentId) {
+        String actorId = sessionManager != null ? sessionManager.getUserId() : null;
+        if (supabaseClient == null || TextUtils.isEmpty(actorId) || TextUtils.isEmpty(recipientId) || actorId.equals(recipientId)) {
+            return;
+        }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("type", type);
+        payload.addProperty("message", message);
+        payload.addProperty("user_id", recipientId);
+        payload.addProperty("actor_id", actorId);
+        if (!TextUtils.isEmpty(postId)) {
+            payload.addProperty("post_id", postId);
+        }
+        if (!TextUtils.isEmpty(commentId)) {
+            payload.addProperty("comment_id", commentId);
+        }
+        supabaseClient.insert("notifications", payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                // no-op
+            }
+
+            @Override
+            public void onError(String error) {
+                // silently ignore notification failures
+            }
+        });
     }
 }

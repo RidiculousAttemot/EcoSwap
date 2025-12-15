@@ -3,6 +3,7 @@ package com.example.ecoswap.dashboard;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.format.DateUtils;
@@ -94,9 +95,7 @@ public class MessagesFragment extends Fragment {
         setupSwipeRefresh();
         
         // Setup filter button
-        btnFilter.setOnClickListener(v -> {
-            Toast.makeText(requireContext(), "Filter options coming soon", Toast.LENGTH_SHORT).show();
-        });
+        btnFilter.setOnClickListener(v -> showFilterDialog());
         return view;
     }
 
@@ -121,6 +120,10 @@ public class MessagesFragment extends Fragment {
                 sessionManager.getUserId()
         );
         conversationMetadataStore = new ConversationMetadataStore(requireContext());
+
+        getParentFragmentManager().setFragmentResultListener("messages_refresh", this, (requestKey, bundle) -> {
+            loadMessages();
+        });
     }
     
     private void setupRecyclerView() {
@@ -176,6 +179,21 @@ public class MessagesFragment extends Fragment {
     private void setupSwipeRefresh() {
         swipeRefresh.setColorSchemeResources(R.color.primary_green);
         swipeRefresh.setOnRefreshListener(this::loadMessages);
+    }
+
+    private void showFilterDialog() {
+        String[] options = new String[]{"All", "Unread", "Archived"};
+        int current = tabLayout != null ? tabLayout.getSelectedTabPosition() : 0;
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Show conversations")
+                .setSingleChoiceItems(options, current, (dialog, which) -> {
+                    if (tabLayout != null && tabLayout.getTabAt(which) != null) {
+                        tabLayout.getTabAt(which).select();
+                    }
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void loadMessages() {
@@ -337,6 +355,10 @@ public class MessagesFragment extends Fragment {
                         listingImage = cachedMetadata.imageUrl;
                     }
                 }
+                boolean archived = conversationMetadataStore != null && conversationMetadataStore.isArchived(counterpartId, listingId);
+                if (conversationMetadataStore != null && conversationMetadataStore.isBlocked(counterpartId, listingId)) {
+                    continue;
+                }
                 String key = counterpartId + "|" + (listingId != null ? listingId : "direct");
 
                 MessagesAdapter.Message summary = conversations.get(key);
@@ -353,7 +375,8 @@ public class MessagesFragment extends Fragment {
                             listingId,
                             listingTitle,
                             listingImage,
-                            avatarUrl
+                            avatarUrl,
+                            archived
                     );
                     conversations.put(key, summary);
                 } else if (!fromCurrentUser && !isRead) {
@@ -462,6 +485,9 @@ public class MessagesFragment extends Fragment {
     private void updateEmptyState() {
         boolean hasMessages = !messagesList.isEmpty();
         rvMessages.setVisibility(hasMessages ? View.VISIBLE : View.GONE);
+        if (!hasMessages && tvEmptyMessages != null) {
+            tvEmptyMessages.setText("No conversations yet. Open a listing to start chatting or check archived chats.");
+        }
         tvEmptyMessages.setVisibility(hasMessages ? View.GONE : View.VISIBLE);
     }
 
@@ -550,7 +576,9 @@ public class MessagesFragment extends Fragment {
                 counterpartId,
                 listingId,
                 listingTitle,
-                listingImage
+            listingImage,
+            null,
+            null
         );
 
         getParentFragmentManager()

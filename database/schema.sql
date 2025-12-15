@@ -142,6 +142,7 @@ CREATE POLICY "Users can update their own swaps"
 CREATE TABLE public.donations (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     donor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    receiver_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     post_id UUID REFERENCES public.posts(id) ON DELETE SET NULL,
     receiver_name TEXT,
     receiver_contact TEXT,
@@ -167,6 +168,11 @@ CREATE POLICY "Listing owner can view donations"
             WHERE p.id = post_id AND p.user_id = auth.uid()
         )
     );
+
+-- Allow the receiver to view donations assigned to them
+CREATE POLICY "Receiver can view donations"
+    ON public.donations FOR SELECT
+    USING (auth.uid() = receiver_id);
 
 CREATE POLICY "Authenticated users can create donations"
     ON public.donations FOR INSERT
@@ -224,6 +230,36 @@ CREATE POLICY "Authenticated users can create comments"
 CREATE POLICY "Users can delete their own comments"
     ON public.comments FOR DELETE
     USING (auth.uid() = author_id);
+
+-- ============================================
+-- NOTIFICATIONS TABLE (New)
+-- ============================================
+CREATE TABLE public.notifications (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE, -- recipient
+    actor_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    post_id UUID REFERENCES public.posts(id) ON DELETE SET NULL,
+    comment_id UUID REFERENCES public.comments(id) ON DELETE SET NULL,
+    type TEXT NOT NULL CHECK (type IN ('like', 'comment')),
+    message TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Notifications visible to recipient"
+    ON public.notifications FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Actors can insert notifications"
+    ON public.notifications FOR INSERT
+    WITH CHECK (auth.uid() = actor_id);
+
+CREATE POLICY "Recipients can update read state"
+    ON public.notifications FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 -- ============================================
 -- BIDS TABLE (Enhanced)
@@ -426,6 +462,7 @@ CREATE INDEX idx_bids_post ON public.bids(post_id);
 CREATE INDEX idx_bids_bidder ON public.bids(bidder_id);
 CREATE INDEX idx_swaps_users ON public.swaps(user1_id, user2_id);
 CREATE INDEX idx_donations_donor ON public.donations(donor_id);
+CREATE INDEX idx_notifications_user ON public.notifications(user_id, is_read);
 CREATE INDEX idx_purchases_buyer ON public.purchases(buyer_id);
 CREATE INDEX idx_transactions_users ON public.transactions(from_user_id, to_user_id);
 CREATE INDEX idx_chats_users ON public.chats(sender_id, receiver_id);

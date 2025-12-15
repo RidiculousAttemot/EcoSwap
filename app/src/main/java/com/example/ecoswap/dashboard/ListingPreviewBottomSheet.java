@@ -26,7 +26,6 @@ import com.example.ecoswap.utils.SupabaseClient;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.JsonObject;
-import java.time.Instant;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.util.Log;
@@ -95,6 +94,11 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
         args.putBoolean(ARG_NEAR_USER, item.isNearUser());
         sheet.setArguments(args);
         return sheet;
+    }
+
+    private String buildInterestedMessage() {
+        String resolvedTitle = !TextUtils.isEmpty(title) ? title : "this item";
+        return "Hi, I'm interested in " + resolvedTitle + ". Is it still available?";
     }
 
     @Nullable
@@ -275,19 +279,23 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void showMarkSuccessfulDialog() {
+        boolean isDonation = "donation".equalsIgnoreCase(listingType);
+        String actionLabel = isDonation ? "Mark as Donated" : "Mark as Swapped";
+        String message = isDonation
+                ? "Mark this donation as completed? We'll update your impact stats."
+                : "Mark this swap as completed? We'll update your impact stats.";
         new MaterialAlertDialogBuilder(requireContext())
             .setTitle("Mark as Successful")
-            .setMessage("Did you successfully swap or donate this item? This will update your impact stats.")
-            .setPositiveButton("Swapped", (dialog, which) -> markAsComplete("swap"))
-            .setNeutralButton("Donated", (dialog, which) -> markAsComplete("donation"))
+            .setMessage(message)
+            .setPositiveButton(actionLabel, (dialog, which) -> markAsComplete())
             .setNegativeButton("Cancel", null)
             .show();
     }
 
-    private void markAsComplete(String selection) {
+    private void markAsComplete() {
         if (supabaseClient == null || TextUtils.isEmpty(listingId)) return;
 
-        boolean isDonation = "donation".equals(selection) || "donated".equals(selection);
+        boolean isDonation = "donation".equalsIgnoreCase(listingType);
         String targetStatus = isDonation ? "donated" : "swapped";
 
         JsonObject payload = new JsonObject();
@@ -335,7 +343,7 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
         payload.addProperty("user1_id", ownerId);
         payload.addProperty("user2_id", currentUserId);
         payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", Instant.now().toString());
+        payload.addProperty("completed_at", nowIsoUtc());
         supabaseClient.insert("swaps", payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
@@ -359,7 +367,11 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
         payload.addProperty("donor_id", ownerId);
         payload.addProperty("receiver_name", "Peer");
         payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", Instant.now().toString());
+        payload.addProperty("completed_at", nowIsoUtc());
+        if (!TextUtils.isEmpty(currentUserId) && !currentUserId.equals(ownerId)) {
+            payload.addProperty("receiver_id", currentUserId);
+        }
+
         supabaseClient.insert("donations", payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
@@ -626,5 +638,11 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
         } else {
             return name.substring(0, Math.min(2, name.length())).toUpperCase();
         }
+    }
+
+    private String nowIsoUtc() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return sdf.format(new java.util.Date(System.currentTimeMillis()));
     }
 }

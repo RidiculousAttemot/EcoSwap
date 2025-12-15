@@ -1,6 +1,7 @@
 package com.example.ecoswap.settings;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.Switch;
@@ -10,16 +11,21 @@ import androidx.appcompat.app.AppCompatDelegate;
 import com.example.ecoswap.R;
 import com.example.ecoswap.auth.LoginActivity;
 import com.example.ecoswap.auth.UserProfileActivity;
+import com.example.ecoswap.utils.SessionManager;
 
 public class SettingsActivity extends AppCompatActivity {
     
     private Switch switchDarkMode, switchNotifications;
     private Button btnEditProfile, btnAbout, btnPrivacy, btnTerms, btnLogout;
+    private SharedPreferences prefs;
+    private SessionManager sessionManager;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        prefs = getSharedPreferences("EcoSwapSettings", MODE_PRIVATE);
+        sessionManager = SessionManager.getInstance(this);
         
         initViews();
         setupListeners();
@@ -52,7 +58,13 @@ public class SettingsActivity extends AppCompatActivity {
         });
         
         btnEditProfile.setOnClickListener(v -> {
+            String userId = sessionManager != null ? sessionManager.getUserId() : null;
+            if (userId == null) {
+                Toast.makeText(this, "Login required to edit profile", Toast.LENGTH_SHORT).show();
+                return;
+            }
             Intent intent = new Intent(this, UserProfileActivity.class);
+            intent.putExtra("USER_ID", userId);
             startActivity(intent);
         });
         
@@ -74,21 +86,26 @@ public class SettingsActivity extends AppCompatActivity {
     }
     
     private void loadSettings() {
-        // TODO: Load settings from SharedPreferences
-        switchDarkMode.setChecked(false);
-        switchNotifications.setChecked(true);
+        boolean darkMode = prefs.getBoolean("dark_mode", false);
+        boolean notifications = prefs.getBoolean("notifications_enabled", true);
+        switchDarkMode.setChecked(darkMode);
+        switchNotifications.setChecked(notifications);
+        AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
     }
     
     private void saveThemePreference(boolean isDarkMode) {
-        // TODO: Save to SharedPreferences
+        prefs.edit().putBoolean("dark_mode", isDarkMode).apply();
     }
     
     private void saveNotificationPreference(boolean isEnabled) {
-        // TODO: Save to SharedPreferences
+        prefs.edit().putBoolean("notifications_enabled", isEnabled).apply();
     }
     
     private void performLogout() {
-        // TODO: Clear session and user data
+        if (sessionManager != null) {
+            sessionManager.logout();
+        }
+        prefs.edit().clear().apply();
         Toast.makeText(this, "Logging out...", Toast.LENGTH_SHORT).show();
         
         Intent intent = new Intent(this, LoginActivity.class);

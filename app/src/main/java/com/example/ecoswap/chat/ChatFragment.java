@@ -54,15 +54,27 @@ public class ChatFragment extends Fragment {
     private static final String ARG_LISTING_ID = "listing_id";
     private static final String ARG_LISTING_TITLE = "listing_title";
     private static final String ARG_IMAGE_URL = "image_url";
+    private static final String ARG_LISTING_TYPE = "listing_type";
+    private static final String ARG_PRESET_MESSAGE = "preset_message";
     private static final String STATE_LISTING_DETAILS_EXPANDED = "state_listing_details_expanded";
 
     public static ChatFragment newInstance(String ownerId, String listingId, String listingTitle, String imageUrl) {
+        return newInstance(ownerId, listingId, listingTitle, imageUrl, null, null);
+    }
+
+    public static ChatFragment newInstance(String ownerId, String listingId, String listingTitle, String imageUrl, @Nullable String listingType, @Nullable String presetMessage) {
         ChatFragment fragment = new ChatFragment();
         Bundle args = new Bundle();
         args.putString(ARG_OWNER_ID, ownerId);
         args.putString(ARG_LISTING_ID, listingId);
         args.putString(ARG_LISTING_TITLE, listingTitle);
         args.putString(ARG_IMAGE_URL, imageUrl);
+        if (!TextUtils.isEmpty(listingType)) {
+            args.putString(ARG_LISTING_TYPE, listingType);
+        }
+        if (!TextUtils.isEmpty(presetMessage)) {
+            args.putString(ARG_PRESET_MESSAGE, presetMessage);
+        }
         fragment.setArguments(args);
         return fragment;
     }
@@ -74,6 +86,7 @@ public class ChatFragment extends Fragment {
     private SupabaseClient supabaseClient;
     private ImageButton btnSend;
     private EditText etMessage;
+    private CharSequence defaultMessageHint;
     private ProgressBar progressSending;
     private TextView tvListingTitle;
     private ImageView ivListing;
@@ -95,6 +108,8 @@ public class ChatFragment extends Fragment {
     private String resolvedListingId;
     private String resolvedListingTitle;
     private String resolvedListingImageUrl;
+    private String resolvedListingType;
+    private String presetMessage;
     private boolean listingLookupInFlight = false;
 
     @Override
@@ -105,6 +120,8 @@ public class ChatFragment extends Fragment {
             resolvedListingTitle = sanitizeMetadataValue(getArguments().getString(ARG_LISTING_TITLE));
             resolvedListingImageUrl = sanitizeMetadataValue(getArguments().getString(ARG_IMAGE_URL));
             listingOwnerId = sanitizeMetadataValue(getArguments().getString(ARG_OWNER_ID));
+            resolvedListingType = sanitizeMetadataValue(getArguments().getString(ARG_LISTING_TYPE));
+            presetMessage = sanitizeMetadataValue(getArguments().getString(ARG_PRESET_MESSAGE));
         }
         if (savedInstanceState != null) {
             isListingDetailsExpanded = savedInstanceState.getBoolean(STATE_LISTING_DETAILS_EXPANDED, false);
@@ -130,6 +147,8 @@ public class ChatFragment extends Fragment {
         setupToolbar(view);
         setupRecyclerView();
         setupSendButton();
+        updateSendAvailability();
+        applyPresetMessage();
         loadParticipantProfiles();
         loadConversationHistory();
         loadListingContext();
@@ -140,6 +159,7 @@ public class ChatFragment extends Fragment {
         rvMessages = root.findViewById(R.id.rvChatMessages);
         btnSend = root.findViewById(R.id.btnSend);
         etMessage = root.findViewById(R.id.etMessage);
+        defaultMessageHint = etMessage != null ? etMessage.getHint() : null;
         progressSending = root.findViewById(R.id.progressSending);
         tvListingTitle = root.findViewById(R.id.tvListingTitle);
         ivListing = root.findViewById(R.id.ivListingPreview);
@@ -180,14 +200,14 @@ public class ChatFragment extends Fragment {
         MaterialToolbar toolbar = root.findViewById(R.id.chatToolbar);
         toolbar.setNavigationOnClickListener(v -> requireActivity().getSupportFragmentManager().popBackStack());
         toolbar.inflateMenu(R.menu.chat_menu);
+        updateMenuLabels(toolbar);
         toolbar.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id == R.id.action_mark_completed) {
                 promptCompletion();
                 return true;
             } else if (id == R.id.action_archive) {
-                Toast.makeText(requireContext(), "Chat archived", Toast.LENGTH_SHORT).show();
-                // TODO: Implement archive logic in database
+                toggleArchive();
                 return true;
             } else if (id == R.id.action_view_profile) {
                 String otherUserId = getOwnerIdArg();
@@ -198,12 +218,93 @@ public class ChatFragment extends Fragment {
                     Toast.makeText(requireContext(), "User info unavailable", Toast.LENGTH_SHORT).show();
                 }
                 return true;
+            } else if (id == R.id.action_block) {
+                toggleBlock();
+                return true;
             } else if (id == R.id.action_report) {
-                Toast.makeText(requireContext(), "Report User clicked", Toast.LENGTH_SHORT).show();
+                launchReport();
                 return true;
             }
             return false;
         });
+    }
+
+    private void updateMenuLabels(@NonNull MaterialToolbar toolbar) {
+        boolean archived = isConversationArchived();
+        if (toolbar.getMenu() != null) {
+            toolbar.getMenu().findItem(R.id.action_archive)
+                .setTitle(archived ? "Unarchive" : "Archive");
+            toolbar.getMenu().findItem(R.id.action_block)
+                .setTitle(isConversationBlocked() ? "Unblock" : "Block");
+        }
+    }
+
+    private boolean isConversationArchived() {
+        String counterpartId = getOwnerIdArg();
+        String listingId = getListingId();
+        return conversationMetadataStore != null && conversationMetadataStore.isArchived(counterpartId, listingId);
+    }
+
+    private boolean isConversationBlocked() {
+        String counterpartId = getOwnerIdArg();
+        String listingId = getListingId();
+        return conversationMetadataStore != null && conversationMetadataStore.isBlocked(counterpartId, listingId);
+    }
+
+    private void toggleArchive() {
+        String counterpartId = getOwnerIdArg();
+        String listingId = getListingId();
+        if (conversationMetadataStore == null || TextUtils.isEmpty(counterpartId)) {
+            Toast.makeText(requireContext(), "Unable to archive", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean archived = isConversationArchived();
+        conversationMetadataStore.setArchived(counterpartId, listingId, !archived);
+        Toast.makeText(requireContext(), archived ? "Conversation unarchived" : "Conversation archived", Toast.LENGTH_SHORT).show();
+        getParentFragmentManager().setFragmentResult("messages_refresh", new Bundle());
+        requireActivity().getSupportFragmentManager().popBackStack();
+    }
+
+    private void toggleBlock() {
+        String counterpartId = getOwnerIdArg();
+        String listingId = getListingId();
+        if (conversationMetadataStore == null || TextUtils.isEmpty(counterpartId)) {
+            Toast.makeText(requireContext(), "Unable to update block state", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean blocked = isConversationBlocked();
+        conversationMetadataStore.setBlocked(counterpartId, listingId, !blocked);
+        Toast.makeText(requireContext(), blocked ? "Conversation unblocked" : "Conversation blocked", Toast.LENGTH_SHORT).show();
+        updateSendAvailability();
+        getParentFragmentManager().setFragmentResult("messages_refresh", new Bundle());
+        requireActivity().getSupportFragmentManager().popBackStack();
+    }
+
+    private void updateSendAvailability() {
+        boolean blocked = isConversationBlocked();
+        if (btnSend != null) {
+            btnSend.setEnabled(!blocked);
+            btnSend.setAlpha(blocked ? 0.5f : 1f);
+        }
+        if (etMessage != null) {
+            etMessage.setEnabled(!blocked);
+            etMessage.setHint(blocked ? "Unblock to send messages" : defaultMessageHint);
+        }
+    }
+
+    private void launchReport() {
+        String counterpartId = getOwnerIdArg();
+        String listingTitle = hasMeaningfulValue(resolvedListingTitle) ? resolvedListingTitle : "";
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_SENDTO);
+        intent.setData(Uri.parse("mailto:"));
+        intent.putExtra(android.content.Intent.EXTRA_EMAIL, new String[]{"support@ecoswap.app"});
+        intent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Report user " + counterpartId);
+        intent.putExtra(android.content.Intent.EXTRA_TEXT, "Describe the issue. Listing: " + listingTitle);
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(requireContext(), "No mail app found", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void setupRecyclerView() {
@@ -228,6 +329,18 @@ public class ChatFragment extends Fragment {
             }
             sendMessage(messageText);
         });
+    }
+
+    private void applyPresetMessage() {
+        if (TextUtils.isEmpty(presetMessage) || etMessage == null) {
+            return;
+        }
+        CharSequence existing = etMessage.getText();
+        if (existing != null && existing.length() > 0) {
+            return;
+        }
+        etMessage.setText(presetMessage);
+        etMessage.setSelection(presetMessage.length());
     }
 
     private void loadParticipantProfiles() {
@@ -289,6 +402,10 @@ public class ChatFragment extends Fragment {
         String currentUserId = sessionManager.getUserId();
         String ownerId = getOwnerIdArg();
         if (TextUtils.isEmpty(currentUserId) || TextUtils.isEmpty(ownerId)) {
+            return;
+        }
+        if (isConversationBlocked()) {
+            Toast.makeText(requireContext(), "Unblock this user to send messages", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -522,7 +639,7 @@ public class ChatFragment extends Fragment {
         updateCompletionControls(false, false);
 
         String endpoint = String.format(Locale.US,
-            "/rest/v1/posts?select=id,user_id,category,status,title,image_url&id=eq.%s&limit=1",
+            "/rest/v1/posts?select=id,user_id,category,status,title,image_url,listing_type&id=eq.%s&limit=1",
             listingId);
         supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
             @Override
@@ -543,6 +660,10 @@ public class ChatFragment extends Fragment {
                     }
                     String rawStatus = listing.optString("status", null);
                     String rawCategory = listing.optString("category", null);
+                    String rawListingType = sanitizeMetadataValue(listing.optString("listing_type", null));
+                    if (hasMeaningfulValue(rawListingType)) {
+                        resolvedListingType = rawListingType;
+                    }
                     String fetchedTitle = sanitizeMetadataValue(listing.optString("title", null));
                     if (hasMeaningfulValue(fetchedTitle)) {
                         resolvedListingTitle = fetchedTitle;
@@ -746,13 +867,23 @@ public class ChatFragment extends Fragment {
         Toast.makeText(requireContext(), R.string.chat_mark_complete_success, Toast.LENGTH_SHORT).show();
     }
 
-    @Nullable
-    private String mapStatusForAcceptance() {
+    private boolean isDonationListing() {
+        if (!TextUtils.isEmpty(resolvedListingType)) {
+            return resolvedListingType.equalsIgnoreCase("donation");
+        }
         if (tvListingStatusLabel != null) {
             CharSequence currentLabel = tvListingStatusLabel.getText();
             if (currentLabel != null && currentLabel.toString().toLowerCase(Locale.US).contains("donat")) {
-                return "donated";
+                return true;
             }
+        }
+        return false;
+    }
+
+    @Nullable
+    private String mapStatusForAcceptance() {
+        if (isDonationListing()) {
+            return "donated";
         }
         return "swapped";
     }
@@ -783,7 +914,7 @@ public class ChatFragment extends Fragment {
         payload.addProperty("user1_id", ownerId);
         payload.addProperty("user2_id", currentUserId);
         payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", Instant.now().toString());
+        payload.addProperty("completed_at", nowIsoUtc());
         supabaseClient.insert("swaps", payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
@@ -810,7 +941,11 @@ public class ChatFragment extends Fragment {
         payload.addProperty("donor_id", ownerId);
         payload.addProperty("receiver_name", "Peer");
         payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", Instant.now().toString());
+        payload.addProperty("completed_at", nowIsoUtc());
+        if (!TextUtils.isEmpty(currentUserId) && !currentUserId.equals(ownerId)) {
+            payload.addProperty("receiver_id", currentUserId);
+        }
+
         supabaseClient.insert("donations", payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
@@ -829,21 +964,27 @@ public class ChatFragment extends Fragment {
             openMyListings(true);
             return;
         }
+        boolean donation = isDonationListing();
+        String actionLabel = donation
+                ? getString(R.string.chat_mark_complete_donated)
+                : getString(R.string.chat_mark_complete_swapped);
+        String message = donation
+                ? "Mark this donation as completed? We'll update both users' stats."
+                : getString(R.string.chat_mark_complete_message);
         new MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.chat_mark_complete_title)
-            .setMessage(R.string.chat_mark_complete_message)
-            .setPositiveButton(R.string.chat_mark_complete_swapped, (d, which) -> markListingComplete("swap"))
-            .setNeutralButton(R.string.chat_mark_complete_donated, (d, which) -> markListingComplete("donation"))
+            .setMessage(message)
+            .setPositiveButton(actionLabel, (d, which) -> markListingComplete())
             .setNegativeButton(android.R.string.cancel, null)
             .show();
     }
 
-    private void markListingComplete(String selection) {
+    private void markListingComplete() {
         String listingId = getListingId();
         if (supabaseClient == null || TextUtils.isEmpty(listingId)) {
             return;
         }
-        boolean isDonation = "donation".equals(selection) || "donated".equals(selection);
+        boolean isDonation = isDonationListing();
         String targetStatus = isDonation ? "donated" : "swapped"; // swaps now complete immediately
         JsonObject payload = new JsonObject();
         payload.addProperty("status", targetStatus);
@@ -877,7 +1018,7 @@ public class ChatFragment extends Fragment {
         }
         JsonObject payload = new JsonObject();
         payload.addProperty("status", status);
-        payload.addProperty("completed_at", Instant.now().toString());
+        payload.addProperty("completed_at", nowIsoUtc());
         supabaseClient.update("posts", listingId, payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
@@ -1245,5 +1386,11 @@ public class ChatFragment extends Fragment {
 
     private boolean hasMeaningfulValue(@Nullable String value) {
         return !TextUtils.isEmpty(sanitizeMetadataValue(value));
+    }
+
+    private String nowIsoUtc() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return sdf.format(new java.util.Date(System.currentTimeMillis()));
     }
 }

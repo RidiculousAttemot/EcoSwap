@@ -89,7 +89,7 @@ public class UserProfileBottomSheet extends BottomSheetDialogFragment {
 
         btnMessageUser.setOnClickListener(v -> {
             if (userId != null) {
-                ChatFragment chatFragment = ChatFragment.newInstance(userId, null, null, null);
+                ChatFragment chatFragment = ChatFragment.newInstance(userId, null, null, null, null, null);
                 getParentFragmentManager()
                     .beginTransaction()
                     .setCustomAnimations(R.anim.slide_in_up, R.anim.fade_out, R.anim.fade_in, R.anim.slide_out_down)

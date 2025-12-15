@@ -60,6 +60,39 @@
                 android:drawableStart="@android:drawable/ic_menu_search"
                 android:drawablePadding="8dp" />
 
+            <FrameLayout
+                android:id="@+id/notificationContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp">
+
+                <ImageButton
+                    android:id="@+id/btnNotifications"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_circle_placeholder"
+                    android:padding="10dp"
+                    android:contentDescription="Notifications"
+                    android:src="@android:drawable/ic_dialog_info"
+                    app:tint="@color/primary_green" />
+
+                <TextView
+                    android:id="@+id/tvNotificationBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end|top"
+                    android:background="@drawable/bg_badge"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="0"
+                    android:textColor="@color/white"
+                    android:textSize="10sp"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+
         </LinearLayout>
 
         <!-- Category Filters -->

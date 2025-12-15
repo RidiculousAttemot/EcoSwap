@@ -11,6 +11,10 @@
         android:title="Archive"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_block"
+        android:title="Block"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_view_profile"
         android:title="View Profile"
         app:showAsAction="never" />

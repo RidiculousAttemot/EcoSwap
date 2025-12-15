@@ -72,6 +72,7 @@ public class ProfileFragment extends Fragment {
     private MaterialCardView cardBio;
     private LinearLayout btnLogout;
     private LinearLayout btnMyListings;
+    private LinearLayout btnNotifications;
     private ProgressBar progressLevel;
     
     private SessionManager sessionManager;
@@ -172,6 +173,7 @@ public class ProfileFragment extends Fragment {
         progressLevel = view.findViewById(R.id.progressLevel);
         btnLogout = view.findViewById(R.id.btnLogout);
         btnMyListings = view.findViewById(R.id.btnMyListings);
+        btnNotifications = view.findViewById(R.id.btnNotifications);
         
         btnEditProfilePicture.setOnClickListener(v -> {
             checkPermissionAndOpenPicker();
@@ -187,6 +189,10 @@ public class ProfileFragment extends Fragment {
 
         if (btnMyListings != null) {
             btnMyListings.setOnClickListener(v -> openMyListings());
+        }
+
+        if (btnNotifications != null) {
+            btnNotifications.setOnClickListener(v -> openNotifications());
         }
         
         return view;
@@ -432,6 +438,14 @@ public class ProfileFragment extends Fragment {
                 .replace(R.id.fragmentContainer, fragment)
                 .addToBackStack("my_listings")
                 .commit();
+    }
+
+    private void openNotifications() {
+        if (!isAdded()) {
+            return;
+        }
+        NotificationsBottomSheet.newInstance()
+                .show(getParentFragmentManager(), "notifications_sheet");
     }
     
     private void showEditProfileDialog() {

@@ -117,10 +117,12 @@ public class TradeHistoryAdapter extends RecyclerView.Adapter<TradeHistoryAdapte
                         : itemView.getContext().getString(R.string.trade_history_partner_unknown);
                 tvTradePartner.setText(itemView.getContext().getString(R.string.trade_history_swap_with, partnerName));
             } else {
-                String receiverLabel = !TextUtils.isEmpty(record.getReceiverName())
-                        ? record.getReceiverName()
-                        : itemView.getContext().getString(R.string.trade_history_receiver_placeholder);
-                tvTradePartner.setText(itemView.getContext().getString(R.string.trade_history_donation_with, receiverLabel));
+                String donationPartner = !TextUtils.isEmpty(record.getCounterpartyName())
+                        ? record.getCounterpartyName()
+                        : (!TextUtils.isEmpty(record.getReceiverName())
+                            ? record.getReceiverName()
+                            : itemView.getContext().getString(R.string.trade_history_receiver_placeholder));
+                tvTradePartner.setText(itemView.getContext().getString(R.string.trade_history_donation_with, donationPartner));
             }
 
             String primaryTitle = record.getPrimaryItem() != null && !TextUtils.isEmpty(record.getPrimaryItem().getTitle())
@@ -172,6 +174,7 @@ public class TradeHistoryAdapter extends RecyclerView.Adapter<TradeHistoryAdapte
 
             boolean hasProofPhoto = !TextUtils.isEmpty(record.getProofPhotoUrl());
             boolean canUploadProof = record.canUploadProof();
+            boolean showProofSection = hasProofPhoto || canUploadProof;
 
             if (hasProofPhoto && ivProofPhoto != null) {
                 ivProofPhoto.setVisibility(View.VISIBLE);
@@ -185,27 +188,37 @@ public class TradeHistoryAdapter extends RecyclerView.Adapter<TradeHistoryAdapte
             }
 
             if (tvProofStatus != null) {
-                if (hasProofPhoto) {
-                    tvProofStatus.setText(R.string.trade_history_proof_uploaded);
-                } else if (canUploadProof) {
-                    tvProofStatus.setText(R.string.trade_history_proof_missing);
+                if (!showProofSection) {
+                    tvProofStatus.setVisibility(View.GONE);
                 } else {
-                    tvProofStatus.setText(R.string.trade_history_proof_locked);
+                    tvProofStatus.setVisibility(View.VISIBLE);
+                    if (hasProofPhoto) {
+                        tvProofStatus.setText(R.string.trade_history_proof_uploaded);
+                    } else if (canUploadProof) {
+                        tvProofStatus.setText(R.string.trade_history_proof_missing);
+                    } else {
+                        tvProofStatus.setText(R.string.trade_history_proof_locked);
+                    }
                 }
             }
 
             if (btnUploadProof != null) {
-                btnUploadProof.setText(hasProofPhoto
-                        ? itemView.getContext().getString(R.string.trade_history_replace_proof)
-                        : itemView.getContext().getString(R.string.trade_history_add_proof));
-                btnUploadProof.setEnabled(canUploadProof);
-                btnUploadProof.setAlpha(canUploadProof ? 1f : 0.5f);
-                if (canUploadProof) {
-                    btnUploadProof.setOnClickListener(v -> listener.onUploadProof(record));
-                } else {
+                if (!showProofSection) {
+                    btnUploadProof.setVisibility(View.GONE);
                     btnUploadProof.setOnClickListener(null);
+                } else {
+                    btnUploadProof.setVisibility(View.VISIBLE);
+                    btnUploadProof.setText(hasProofPhoto
+                            ? itemView.getContext().getString(R.string.trade_history_replace_proof)
+                            : itemView.getContext().getString(R.string.trade_history_add_proof));
+                    btnUploadProof.setEnabled(canUploadProof);
+                    btnUploadProof.setAlpha(canUploadProof ? 1f : 0.5f);
+                    if (canUploadProof) {
+                        btnUploadProof.setOnClickListener(v -> listener.onUploadProof(record));
+                    } else {
+                        btnUploadProof.setOnClickListener(null);
+                    }
                 }
-                btnUploadProof.setVisibility(View.VISIBLE);
             }
 
             itemView.setOnClickListener(v -> listener.onTradeClicked(record));

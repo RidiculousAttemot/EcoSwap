@@ -223,7 +223,7 @@ public class MyListingsFragment extends Fragment
         loadingActiveListings = true;
         updateGlobalLoadingIndicator();
         String endpoint = String.format(Locale.US,
-            "/rest/v1/posts?select=id,title,description,image_url,status,category,listing_type,condition,location,updated_at&user_id=eq.%s&listing_type=neq.community&order=updated_at.desc",
+            "/rest/v1/posts?select=id,title,description,image_url,status,category,listing_type,condition,location,updated_at&user_id=eq.%s&listing_type=not.is.null&listing_type=neq.community&category=not.ilike.community&order=updated_at.desc",
             userId);
         supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
             @Override
@@ -259,7 +259,16 @@ public class MyListingsFragment extends Fragment
                     String imageUrl = normalizeImageUrl(post.optString("image_url", ""));
                     String location = post.optString("location", null);
                     String rawCategory = post.optString("category", null);
-                    String listingType = post.optString("listing_type", "swap");
+                    if (!TextUtils.isEmpty(rawCategory) && "community".equalsIgnoreCase(rawCategory)) {
+                        continue;
+                    }
+                    String listingType = post.optString("listing_type", "").trim();
+                    if ("community".equalsIgnoreCase(listingType)) {
+                        continue;
+                    }
+                    if (TextUtils.isEmpty(listingType)) {
+                        listingType = "swap";
+                    }
                     String condition = post.optString("condition", "used");
                     long updatedAt = parseTimestamp(post.optString("updated_at"));
                     parsed.add(new ActiveListingsAdapter.ActiveListing(
@@ -436,15 +445,16 @@ public class MyListingsFragment extends Fragment
     }
 
     private void fetchDonations() {
-        StringBuilder select = new StringBuilder("id,status,created_at,completed_at,receiver_name,pickup_location");
+        StringBuilder select = new StringBuilder("id,status,created_at,completed_at,receiver_name,pickup_location,donor_id,receiver_id");
         if (TradeFeatureCompat.isProofPhotoSupported()) {
             select.append(",proof_photo_url");
         }
         select.append(",post:posts!donations_post_id_fkey(id,title,image_url,user_id)");
+        String orClause = String.format(Locale.US, "(donor_id.eq.%s,receiver_id.eq.%s)", userId, userId);
         String endpoint = String.format(Locale.US,
-                "/rest/v1/donations?select=%s&donor_id=eq.%s&order=created_at.desc",
+                "/rest/v1/donations?select=%s&or=%s&order=created_at.desc",
                 select.toString(),
-                userId);
+                Uri.encode(orClause));
         supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
@@ -467,7 +477,7 @@ public class MyListingsFragment extends Fragment
 
     private void fetchCompletedPosts() {
         String endpoint = String.format(Locale.US,
-            "/rest/v1/posts?select=id,status,created_at,title,image_url,user_id&user_id=eq.%s&status=in.(swapped,donated,completed)&listing_type=neq.community&order=created_at.desc",
+            "/rest/v1/posts?select=id,status,created_at,title,image_url,user_id&user_id=eq.%s&status=in.(swapped,donated,completed)&listing_type=not.is.null&listing_type=neq.community&category=not.ilike.community&order=created_at.desc",
                 userId);
         supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
             @Override
@@ -497,6 +507,7 @@ public class MyListingsFragment extends Fragment
                 record.setStatus(swap.optString("status", "pending"));
                 record.setCompletedAtEpochMs(parseOptionalTimestamp(swap.optString("completed_at")));
                 record.setProofPhotoUrl(swap.optString("proof_photo_url", null));
+                record.setProofUploadSupported(TradeFeatureCompat.isProofPhotoSupported());
 
                 String user1 = swap.optString("user1_id");
                 String user2 = swap.optString("user2_id");
@@ -536,9 +547,20 @@ public class MyListingsFragment extends Fragment
                 record.setStatus(donation.optString("status", "pending"));
                 record.setCompletedAtEpochMs(parseOptionalTimestamp(donation.optString("completed_at")));
                 record.setProofPhotoUrl(donation.optString("proof_photo_url", null));
+                record.setProofUploadSupported(TradeFeatureCompat.isProofPhotoSupported());
                 record.setReceiverName(donation.optString("receiver_name", null));
                 record.setPickupLocation(donation.optString("pickup_location", null));
                 record.setPrimaryItem(buildTradeItem(donation.optJSONObject("post")));
+
+                String donorId = donation.optString("donor_id");
+                String receiverId = donation.optString("receiver_id");
+                boolean currentIsDonor = userId != null && userId.equals(donorId);
+                String counterpartyId = currentIsDonor ? receiverId : donorId;
+                record.setCounterpartyId(counterpartyId);
+                if (!TextUtils.isEmpty(counterpartyId) && !userNameCache.containsKey(counterpartyId)) {
+                    pendingProfileLookups.add(counterpartyId);
+                }
+
                 pendingTradeRecords.add(record);
             }
         } catch (JSONException e) {
@@ -561,6 +583,7 @@ public class MyListingsFragment extends Fragment
                 TradeRecord record = new TradeRecord(post.optString("id"), type, parseTimestamp(post.optString("created_at")));
                 record.setStatus(status);
                 record.setPrimaryItem(buildTradeItem(post));
+                record.setProofUploadSupported(false);
                 pendingTradeRecords.add(record);
             }
         } catch (JSONException e) {
@@ -706,7 +729,7 @@ public class MyListingsFragment extends Fragment
         updateGlobalLoadingIndicator();
         JsonObject payload = new JsonObject();
         payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", Instant.now().toString());
+        payload.addProperty("completed_at", nowIsoUtc());
         String table = record.getType() == TradeRecord.TradeType.SWAP ? "swaps" : "donations";
         supabaseClient.update(table, record.getId(), payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
@@ -797,6 +820,12 @@ public class MyListingsFragment extends Fragment
     }
 
     private void showTradeDetailsDialog(@NonNull TradeRecord record) {
+        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("MMM d, yyyy h:mm a", java.util.Locale.getDefault());
+        String createdLabel = fmt.format(new java.util.Date(record.getCreatedAtEpochMs()));
+        String completedLabel = record.getCompletedAtEpochMs() != null
+                ? fmt.format(new java.util.Date(record.getCompletedAtEpochMs()))
+                : getString(R.string.trade_history_pending_label);
+
         StringBuilder message = new StringBuilder();
         if (record.getPrimaryItem() != null) {
             message.append(getString(R.string.listing_preview_details_header)).append(": ")
@@ -806,26 +835,45 @@ public class MyListingsFragment extends Fragment
             message.append(getString(R.string.trade_history_swap_with, record.getCounterpartyName() != null ? record.getCounterpartyName() : getString(R.string.trade_history_partner_unknown)))
                     .append("\n");
         } else if (record.getType() == TradeRecord.TradeType.DONATION) {
-            String receiverLabel = !TextUtils.isEmpty(record.getReceiverName())
-                    ? record.getReceiverName()
-                    : getString(R.string.trade_history_receiver_placeholder);
-            message.append(getString(R.string.trade_history_donation_with, receiverLabel)).append("\n");
+            String donationPartner = !TextUtils.isEmpty(record.getCounterpartyName())
+                    ? record.getCounterpartyName()
+                    : (!TextUtils.isEmpty(record.getReceiverName())
+                        ? record.getReceiverName()
+                        : getString(R.string.trade_history_receiver_placeholder));
+            message.append(getString(R.string.trade_history_donation_with, donationPartner)).append("\n");
             if (!TextUtils.isEmpty(record.getPickupLocation())) {
                 message.append(getString(R.string.pickup_location_label, record.getPickupLocation())).append("\n");
             }
         }
 
-        if (!TextUtils.isEmpty(record.getProofPhotoUrl())) {
-            message.append("Proof: ").append(record.getProofPhotoUrl()).append("\n");
-        } else {
+        message.append("Created: ").append(createdLabel).append("\n");
+        message.append("Completed: ").append(completedLabel).append("\n");
+
+        boolean hasProof = !TextUtils.isEmpty(record.getProofPhotoUrl());
+        if (hasProof) {
+            message.append(getString(R.string.trade_history_proof_uploaded)).append("\n");
+        } else if (record.canUploadProof()) {
             message.append(getString(R.string.trade_history_proof_missing)).append("\n");
+        } else {
+            message.append(getString(R.string.trade_history_proof_locked)).append("\n");
         }
 
-        new MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(record.getType() == TradeRecord.TradeType.SWAP ? R.string.trade_history_swap_with : R.string.trade_history_donation_with)
                 .setMessage(message.toString())
-                .setPositiveButton(android.R.string.ok, null)
-                .show();
+                .setPositiveButton(android.R.string.ok, null);
+
+        if (hasProof) {
+            builder.setNeutralButton("View proof", (d, which) -> {
+                try {
+                    startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(record.getProofPhotoUrl())));
+                } catch (Exception e) {
+                    Toast.makeText(requireContext(), "Unable to open proof", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        builder.show();
     }
 
     private void updateImpactForInvolvedUsers(@NonNull TradeRecord record) {
@@ -997,7 +1045,12 @@ public class MyListingsFragment extends Fragment
 
     @Override
     public void onMarkCompleteClicked(@NonNull ActiveListingsAdapter.ActiveListing listing) {
-        openPreview(listing); // reuse preview sheet actions (mark successful already implemented)
+        confirmMarkComplete(listing);
+    }
+
+    @Override
+    public void onDeleteClicked(@NonNull ActiveListingsAdapter.ActiveListing listing) {
+        confirmDeleteListing(listing);
     }
 
     private void openPreview(@NonNull ActiveListingsAdapter.ActiveListing listing) {
@@ -1016,6 +1069,72 @@ public class MyListingsFragment extends Fragment
                 .commit();
     }
 
+    private void confirmMarkComplete(@NonNull ActiveListingsAdapter.ActiveListing listing) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.chat_mark_complete_title)
+                .setMessage(R.string.chat_mark_complete_message)
+                .setPositiveButton(R.string.chat_mark_complete_title, (d, w) -> markListingComplete(listing))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void markListingComplete(@NonNull ActiveListingsAdapter.ActiveListing listing) {
+        if (supabaseClient == null || TextUtils.isEmpty(listing.getId())) {
+            return;
+        }
+        String targetStatus = "donation".equalsIgnoreCase(listing.getListingType()) ? "donated" : "swapped";
+        JsonObject payload = new JsonObject();
+        payload.addProperty("status", targetStatus);
+        payload.addProperty("completed_at", nowIsoUtc());
+        progressBar.setVisibility(View.VISIBLE);
+        supabaseClient.update("posts", listing.getId(), payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                Toast.makeText(getContext(), R.string.chat_mark_complete_success, Toast.LENGTH_SHORT).show();
+                loadActiveListings();
+                loadCompletedTrades();
+                toggleGroup.check(R.id.btnToggleCompleted);
+                showCompletedTab();
+            }
+
+            @Override
+            public void onError(String error) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), R.string.chat_mark_complete_error, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void confirmDeleteListing(@NonNull ActiveListingsAdapter.ActiveListing listing) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.delete_listing_title)
+                .setMessage(R.string.delete_listing_message)
+                .setPositiveButton(R.string.delete_listing_title, (d, w) -> deleteListing(listing))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void deleteListing(@NonNull ActiveListingsAdapter.ActiveListing listing) {
+        if (supabaseClient == null || TextUtils.isEmpty(listing.getId())) {
+            return;
+        }
+        progressBar.setVisibility(View.VISIBLE);
+        supabaseClient.delete("posts", listing.getId(), new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                Toast.makeText(getContext(), R.string.listing_delete_success, Toast.LENGTH_SHORT).show();
+                loadActiveListings();
+                loadCompletedTrades();
+            }
+
+            @Override
+            public void onError(String error) {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(getContext(), R.string.listing_delete_error, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     private MarketplaceFragment.MarketplaceItem toMarketplaceItem(@NonNull ActiveListingsAdapter.ActiveListing listing) {
         MarketplaceFragment.MarketplaceItem item = new MarketplaceFragment.MarketplaceItem();
         item.setId(listing.getId());
@@ -1031,5 +1150,11 @@ public class MyListingsFragment extends Fragment
         item.setRawCondition(listing.getCondition());
         item.setDisplayCondition(listing.getCondition());
         return item;
+    }
+
+    private String nowIsoUtc() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US);
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        return sdf.format(new java.util.Date(System.currentTimeMillis()));
     }
 }

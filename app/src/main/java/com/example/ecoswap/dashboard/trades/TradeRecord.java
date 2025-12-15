@@ -57,6 +57,7 @@ public class TradeRecord {
     private String receiverName;
     private String pickupLocation;
     private String proofPhotoUrl;
+    private boolean proofUploadSupported = true;
 
     public TradeRecord(String id, TradeType type, long createdAtEpochMs) {
         this.id = id;
@@ -164,7 +165,11 @@ public class TradeRecord {
     }
 
     public boolean canUploadProof() {
-        return isCompleted();
+        return isCompleted() && proofUploadSupported;
+    }
+
+    public void setProofUploadSupported(boolean supported) {
+        this.proofUploadSupported = supported;
     }
 
     private boolean isCompletedStatus(@NonNull String rawStatus) {

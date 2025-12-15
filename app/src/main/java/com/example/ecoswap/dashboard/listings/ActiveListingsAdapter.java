@@ -10,7 +10,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.ecoswap.R;
-import com.google.android.material.chip.Chip;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -23,6 +22,7 @@ public class ActiveListingsAdapter extends RecyclerView.Adapter<ActiveListingsAd
         void onListingClicked(@NonNull ActiveListing listing);
         void onEditClicked(@NonNull ActiveListing listing);
         void onMarkCompleteClicked(@NonNull ActiveListing listing);
+        void onDeleteClicked(@NonNull ActiveListing listing);
     }
 
     private final List<ActiveListing> listings = new ArrayList<>();
@@ -61,22 +61,24 @@ public class ActiveListingsAdapter extends RecyclerView.Adapter<ActiveListingsAd
 
     static class ActiveListingViewHolder extends RecyclerView.ViewHolder {
         private final TextView tvTitle;
-        private final Chip chipType;
+        private final TextView tvCategory;
         private final TextView tvStatus;
         private final TextView tvLocation;
         private final TextView tvUpdatedAt;
         private final android.widget.ImageView ivCover;
         private final com.google.android.material.button.MaterialButton btnEdit;
+        private final com.google.android.material.button.MaterialButton btnDelete;
         private final com.google.android.material.button.MaterialButton btnMarkComplete;
 
         ActiveListingViewHolder(@NonNull View itemView) {
             super(itemView);
             ivCover = itemView.findViewById(R.id.ivListingCover);
             tvTitle = itemView.findViewById(R.id.tvListingTitle);
-            chipType = itemView.findViewById(R.id.chipListingType);
+            tvCategory = itemView.findViewById(R.id.tvListingCategory);
             tvStatus = itemView.findViewById(R.id.tvListingStatus);
             tvLocation = itemView.findViewById(R.id.tvListingLocation);
             tvUpdatedAt = itemView.findViewById(R.id.tvListingUpdatedAt);
+            btnDelete = itemView.findViewById(R.id.btnDeleteListing);
             btnEdit = itemView.findViewById(R.id.btnEditListing);
             btnMarkComplete = itemView.findViewById(R.id.btnMarkComplete);
         }
@@ -85,7 +87,7 @@ public class ActiveListingsAdapter extends RecyclerView.Adapter<ActiveListingsAd
                   OnListingClickListener listener,
                   SimpleDateFormat dateFormat) {
             tvTitle.setText(listing.getTitle());
-            chipType.setText(listing.getDisplayCategory());
+                tvCategory.setText(listing.getDisplayCategory());
             tvStatus.setText(listing.getDisplayStatus());
             tvLocation.setText(!TextUtils.isEmpty(listing.getLocation())
                     ? listing.getLocation()
@@ -114,6 +116,12 @@ public class ActiveListingsAdapter extends RecyclerView.Adapter<ActiveListingsAd
             btnEdit.setOnClickListener(v -> {
                 if (listener != null) {
                     listener.onEditClicked(listing);
+                }
+            });
+
+            btnDelete.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onDeleteClicked(listing);
                 }
             });
 

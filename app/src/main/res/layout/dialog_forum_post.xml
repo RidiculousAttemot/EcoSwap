@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <EditText
+        android:id="@+id/etForumTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Title"
+        android:inputType="textCapSentences"
+        android:padding="12dp" />
+
+    <EditText
+        android:id="@+id/etForumContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Share your update"
+        android:inputType="textMultiLine"
+        android:minLines="3"
+        android:maxLines="6"
+        android:gravity="top"
+        android:padding="12dp"
+        android:layout_marginTop="12dp" />
+
+</LinearLayout>

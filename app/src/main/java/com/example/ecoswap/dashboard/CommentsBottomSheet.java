@@ -29,7 +29,9 @@ import org.json.JSONObject;
 public class CommentsBottomSheet extends BottomSheetDialogFragment {
 
     private static final String ARG_POST_ID = "arg_post_id";
+    private static final String ARG_POST_OWNER_ID = "arg_post_owner_id";
     private String postId;
+    private String postOwnerId;
     
     private RecyclerView rvComments;
     private EditText etCommentInput;
@@ -44,10 +46,13 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
     private SessionManager sessionManager;
     private String userId;
 
-    public static CommentsBottomSheet newInstance(String postId) {
+    public static CommentsBottomSheet newInstance(String postId, @Nullable String postOwnerId) {
         CommentsBottomSheet fragment = new CommentsBottomSheet();
         Bundle args = new Bundle();
         args.putString(ARG_POST_ID, postId);
+        if (!TextUtils.isEmpty(postOwnerId)) {
+            args.putString(ARG_POST_OWNER_ID, postOwnerId);
+        }
         fragment.setArguments(args);
         return fragment;
     }
@@ -57,6 +62,7 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             postId = getArguments().getString(ARG_POST_ID);
+            postOwnerId = getArguments().getString(ARG_POST_OWNER_ID);
         }
         sessionManager = SessionManager.getInstance(requireContext());
         supabaseClient = SupabaseClient.getInstance(requireContext());
@@ -111,7 +117,7 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
                         JSONObject profile = obj.optJSONObject("profiles");
                         String authorName = profile != null ? profile.optString("name", "Unknown") : "Unknown";
                         
-                        String timeAgo = createdAt.length() >= 10 ? createdAt.substring(0, 10) : createdAt;
+                        String timeAgo = formatRelativeTime(createdAt);
                         
                         newComments.add(new CommentsAdapter.Comment(id, authorName, content, timeAgo));
                     }
@@ -162,15 +168,37 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
         payload.addProperty("post_id", postId);
         payload.addProperty("author_id", userId);
         payload.addProperty("content", content);
-        
+
+        // Optimistic insert
+        String provisionalId = "temp_" + System.currentTimeMillis();
+        CommentsAdapter.Comment provisional = new CommentsAdapter.Comment(provisionalId, "You", content, getString(R.string.just_now));
+        commentList.add(0, provisional);
+        adapter.notifyDataSetChanged();
+        tvNoComments.setVisibility(View.GONE);
+
         supabaseClient.insert("comments", payload, new SupabaseClient.OnDatabaseCallback() {
             @Override
             public void onSuccess(Object data) {
+                String newId = provisionalId;
+                String createdAt = null;
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject obj = array.getJSONObject(0);
+                        newId = obj.optString("id", provisionalId);
+                        createdAt = obj.optString("created_at", null);
+                    }
+                } catch (JSONException ignored) { }
+
+                String displayTime = formatRelativeTime(createdAt);
+                final String finalNewId = newId;
+                final String finalDisplayTime = displayTime;
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         etCommentInput.setText("");
                         btnSend.setEnabled(true);
-                        loadComments(); // Refresh list
+                        replaceProvisional(provisionalId, finalNewId, finalDisplayTime);
+                        sendNotification("comment", "commented on your post", postOwnerId, postId, finalNewId);
                         Toast.makeText(getContext(), "Comment posted", Toast.LENGTH_SHORT).show();
                     });
                 }
@@ -181,10 +209,75 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
                 if (isAdded()) {
                     requireActivity().runOnUiThread(() -> {
                         btnSend.setEnabled(true);
+                        removeProvisional(provisionalId);
                         Toast.makeText(getContext(), "Failed to post comment: " + error, Toast.LENGTH_SHORT).show();
                     });
                 }
             }
+        });
+    }
+
+    private void replaceProvisional(String provisionalId, String newId, String displayTime) {
+        for (int i = 0; i < commentList.size(); i++) {
+            CommentsAdapter.Comment c = commentList.get(i);
+            if (provisionalId.equals(c.id)) {
+                commentList.set(i, new CommentsAdapter.Comment(newId, c.authorName, c.content, displayTime));
+                adapter.notifyDataSetChanged();
+                return;
+            }
+        }
+    }
+
+    private void removeProvisional(String provisionalId) {
+        for (int i = 0; i < commentList.size(); i++) {
+            if (provisionalId.equals(commentList.get(i).id)) {
+                commentList.remove(i);
+                adapter.notifyDataSetChanged();
+                return;
+            }
+        }
+    }
+
+    private String formatRelativeTime(@Nullable String iso) {
+        if (TextUtils.isEmpty(iso)) {
+            return getString(R.string.just_now);
+        }
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date date = sdf.parse(iso);
+            if (date == null) return iso;
+            long delta = System.currentTimeMillis() - date.getTime();
+            long minutes = Math.max(1, delta / 60000);
+            if (minutes < 60) return minutes + "m ago";
+            long hours = minutes / 60;
+            if (hours < 24) return hours + "h ago";
+            long days = hours / 24;
+            return days + "d ago";
+        } catch (Exception e) {
+            return iso;
+        }
+    }
+
+    private void sendNotification(String type, String message, @Nullable String recipientId, String postId, @Nullable String commentId) {
+        if (supabaseClient == null || TextUtils.isEmpty(recipientId) || TextUtils.isEmpty(userId) || userId.equals(recipientId)) {
+            return;
+        }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("type", type);
+        payload.addProperty("message", message);
+        payload.addProperty("user_id", recipientId);
+        payload.addProperty("actor_id", userId);
+        payload.addProperty("post_id", postId);
+        if (!TextUtils.isEmpty(commentId)) {
+            payload.addProperty("comment_id", commentId);
+        }
+        supabaseClient.insert("notifications", payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) { }
+
+            @Override
+            public void onError(String error) { }
         });
     }
 }

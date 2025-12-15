@@ -15,6 +15,7 @@ import com.bumptech.glide.Glide;
 import com.example.ecoswap.R;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MessagesAdapter extends RecyclerView.Adapter<MessagesAdapter.MessageViewHolder> {
 
@@ -130,16 +131,24 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesAdapter.Messag
         switch (currentTabPosition) {
             case 1:
                 for (Message message : messages) {
-                    if (message.getUnreadCount() > 0) {
+                    if (message.getUnreadCount() > 0 && !message.isArchived()) {
                         base.add(message);
                     }
                 }
                 break;
             case 2:
-                // Archived conversations not yet implemented
+                for (Message message : messages) {
+                    if (message.isArchived()) {
+                        base.add(message);
+                    }
+                }
                 break;
             default:
-                base.addAll(messages);
+                for (Message message : messages) {
+                    if (!message.isArchived()) {
+                        base.add(message);
+                    }
+                }
                 break;
         }
 
@@ -267,29 +276,22 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesAdapter.Messag
         private int unreadCount;
         private final boolean isOnline;
         private String itemName;
-
-        public Message(String userName, String lastMessage, String timestamp, int unreadCount, boolean isOnline, String itemName) {
-            this(userName, lastMessage, timestamp, unreadCount, isOnline, itemName, null, null, null);
-        }
+        private final boolean archived;
 
         public Message(String userName, String lastMessage, String timestamp, int unreadCount, boolean isOnline, String itemName,
-                        String userId, String listingId, String listingTitle) {
-            this(userName, lastMessage, timestamp, unreadCount, isOnline, itemName, userId, listingId, listingTitle, null, null);
-        }
-
-        public Message(String userName, String lastMessage, String timestamp, int unreadCount, boolean isOnline, String itemName,
-                        String userId, String listingId, String listingTitle, String listingImageUrl, String avatarUrl) {
-            this.userName = userName;
-            this.lastMessage = lastMessage;
-            this.timestamp = timestamp;
+                        String userId, String listingId, String listingTitle, String listingImageUrl, String avatarUrl, boolean archived) {
+            this.userName = userName != null ? userName : "";
+            this.lastMessage = lastMessage != null ? lastMessage : "";
+            this.timestamp = timestamp != null ? timestamp : "";
             this.unreadCount = unreadCount;
             this.isOnline = isOnline;
-            this.itemName = itemName != null ? itemName : listingTitle;
-            this.userId = userId;
-            this.listingId = listingId;
-            this.listingTitle = listingTitle;
-            this.listingImageUrl = listingImageUrl;
-            this.avatarUrl = avatarUrl;
+            this.itemName = !TextUtils.isEmpty(itemName) ? itemName : listingTitle;
+            this.userId = userId != null ? userId : "";
+            this.listingId = listingId != null ? listingId : "";
+            this.listingTitle = listingTitle != null ? listingTitle : "";
+            this.listingImageUrl = listingImageUrl != null ? listingImageUrl : "";
+            this.avatarUrl = avatarUrl != null ? avatarUrl : "";
+            this.archived = archived;
         }
 
         public String getUserName() { return userName; }
@@ -304,6 +306,7 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesAdapter.Messag
         public String getListingTitle() { return listingTitle; }
         public String getListingImageUrl() { return listingImageUrl; }
         public String getAvatarUrl() { return avatarUrl; }
+        public boolean isArchived() { return archived; }
 
         public void setListingMetadata(String title, String imageUrl) {
             if (!TextUtils.isEmpty(title)) {
@@ -348,33 +351,24 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesAdapter.Messag
             if (this == obj) return true;
             if (!(obj instanceof Message)) return false;
             Message other = (Message) obj;
-            return userId.equals(other.userId) &&
-                    listingId.equals(other.listingId) &&
-                    listingTitle.equals(other.listingTitle) &&
-                    listingImageUrl.equals(other.listingImageUrl) &&
-                    avatarUrl.equals(other.avatarUrl) &&
-                    userName.equals(other.userName) &&
-                    lastMessage.equals(other.lastMessage) &&
-                    timestamp.equals(other.timestamp) &&
-                    unreadCount == other.unreadCount &&
-                    isOnline == other.isOnline &&
-                    itemName.equals(other.itemName);
+            return unreadCount == other.unreadCount
+                    && isOnline == other.isOnline
+                    && archived == other.archived
+                    && Objects.equals(userId, other.userId)
+                    && Objects.equals(listingId, other.listingId)
+                    && Objects.equals(listingTitle, other.listingTitle)
+                    && Objects.equals(listingImageUrl, other.listingImageUrl)
+                    && Objects.equals(avatarUrl, other.avatarUrl)
+                    && Objects.equals(userName, other.userName)
+                    && Objects.equals(lastMessage, other.lastMessage)
+                    && Objects.equals(timestamp, other.timestamp)
+                    && Objects.equals(itemName, other.itemName);
         }
 
         @Override
         public int hashCode() {
-            int result = userId.hashCode();
-            result = 31 * result + listingId.hashCode();
-            result = 31 * result + listingTitle.hashCode();
-            result = 31 * result + listingImageUrl.hashCode();
-            result = 31 * result + avatarUrl.hashCode();
-            result = 31 * result + userName.hashCode();
-            result = 31 * result + lastMessage.hashCode();
-            result = 31 * result + timestamp.hashCode();
-            result = 31 * result + unreadCount;
-            result = 31 * result + (isOnline ? 1 : 0);
-            result = 31 * result + itemName.hashCode();
-            return result;
+            return Objects.hash(userId, listingId, listingTitle, listingImageUrl, avatarUrl,
+                    userName, lastMessage, timestamp, unreadCount, isOnline, itemName, archived);
         }
     }
 }

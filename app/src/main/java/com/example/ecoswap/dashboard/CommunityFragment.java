@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
@@ -52,6 +53,8 @@ public class CommunityFragment extends Fragment {
     private RecyclerView rvCommunityPosts;
     private FloatingActionButton fabCreatePost;
     private EditText etSearchPosts;
+    private ImageButton btnNotifications;
+    private TextView tvNotificationBadge;
     private Chip chipAllPosts, chipSwapStories, chipDonations, chipTips, chipQuestions;
     private SwipeRefreshLayout swipeRefreshLayout;
     
@@ -78,6 +81,13 @@ public class CommunityFragment extends Fragment {
         supabaseClient = SupabaseClient.getInstance(requireContext());
         userId = sessionManager.getUserId();
         initImagePicker();
+        getParentFragmentManager().setFragmentResultListener("notifications_refresh", this, (requestKey, result) -> loadNotificationBadge());
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadNotificationBadge();
     }
     
     @Nullable
@@ -90,6 +100,7 @@ public class CommunityFragment extends Fragment {
         setupRecyclerView();
         loadPosts();
         setupFAB();
+        loadNotificationBadge();
         
         return view;
     }
@@ -98,6 +109,8 @@ public class CommunityFragment extends Fragment {
         rvCommunityPosts = view.findViewById(R.id.rvCommunityPosts);
         fabCreatePost = view.findViewById(R.id.fabCreatePost);
         etSearchPosts = view.findViewById(R.id.etSearchPosts);
+        btnNotifications = view.findViewById(R.id.btnNotifications);
+        tvNotificationBadge = view.findViewById(R.id.tvNotificationBadge);
         swipeRefreshLayout = view.findViewById(R.id.swipeRefreshLayout); // Assuming you add this to layout
         
         chipAllPosts = view.findViewById(R.id.chipAllPosts);
@@ -108,6 +121,11 @@ public class CommunityFragment extends Fragment {
         
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setOnRefreshListener(this::loadPosts);
+        }
+
+        if (btnNotifications != null) {
+            btnNotifications.setOnClickListener(v -> NotificationsBottomSheet.newInstance()
+                    .show(getParentFragmentManager(), "notifications_sheet"));
         }
     }
     
@@ -142,6 +160,40 @@ public class CommunityFragment extends Fragment {
         rvCommunityPosts.setLayoutManager(new LinearLayoutManager(getContext()));
         rvCommunityPosts.setAdapter(postAdapter);
     }
+
+    private void loadNotificationBadge() {
+        if (supabaseClient == null || TextUtils.isEmpty(userId) || tvNotificationBadge == null) {
+            return;
+        }
+        String endpoint = String.format(Locale.US,
+            "/rest/v1/notifications?select=id&user_id=eq.%s&is_read=eq.false",
+            userId);
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    int unread = array.length();
+                    if (isAdded() && tvNotificationBadge != null) {
+                        requireActivity().runOnUiThread(() -> {
+                            if (unread > 0) {
+                                tvNotificationBadge.setText(String.valueOf(unread));
+                                tvNotificationBadge.setVisibility(View.VISIBLE);
+                            } else {
+                                tvNotificationBadge.setVisibility(View.GONE);
+                            }
+                        });
+                    }
+                } catch (JSONException ignored) {
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                // ignore badge errors
+            }
+        });
+    }
     
     private void loadPosts() {
         if (swipeRefreshLayout != null) {
@@ -173,6 +225,7 @@ public class CommunityFragment extends Fragment {
                             commentCount = comments.optJSONObject(0).optInt("count", 0);
                         }
                         String createdAt = obj.optString("created_at");
+                        String ownerId = obj.optString("user_id", "");
                         
                         JSONObject profile = obj.optJSONObject("profiles");
                         String userName = "Unknown User";
@@ -183,15 +236,10 @@ public class CommunityFragment extends Fragment {
                             userAvatar = profile.optString("profile_image_url");
                         }
                         
-                        // Calculate time ago
-                        String timeAgo = "Just now";
-                        if (createdAt != null) {
-                            // Simple time ago logic or use a utility
-                            timeAgo = createdAt.substring(0, 10); // Date only for now
-                        }
+                        String timeAgo = formatRelative(createdAt);
                         
                         newPosts.add(new CommunityPost(
-                            id, userName, userAvatar, timeAgo, title, content, likes, commentCount, imageUrl
+                            id, ownerId, userName, userAvatar, timeAgo, title, content, likes, commentCount, imageUrl, createdAt
                         ));
                     }
                     
@@ -227,6 +275,27 @@ public class CommunityFragment extends Fragment {
                 );
             }
         });
+    }
+
+    private String formatRelative(@Nullable String iso) {
+        if (TextUtils.isEmpty(iso)) {
+            return getString(R.string.just_now);
+        }
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date date = sdf.parse(iso);
+            if (date == null) return iso;
+            long delta = System.currentTimeMillis() - date.getTime();
+            long minutes = Math.max(1, delta / 60000);
+            if (minutes < 60) return minutes + "m ago";
+            long hours = minutes / 60;
+            if (hours < 24) return hours + "h ago";
+            long days = hours / 24;
+            return days + "d ago";
+        } catch (Exception e) {
+            return iso;
+        }
     }
     
     private void filterPosts(String category) {
@@ -265,12 +334,13 @@ public class CommunityFragment extends Fragment {
                             commentCount = comments.optJSONObject(0).optInt("count", 0);
                         }
                         String createdAt = obj.optString("created_at");
+                        String ownerId = obj.optString("user_id", "");
                         JSONObject profile = obj.optJSONObject("profiles");
                         String userName = profile != null ? profile.optString("name", "Unknown") : "Unknown";
                         String userAvatar = profile != null ? profile.optString("profile_image_url") : null;
                         
                         newPosts.add(new CommunityPost(
-                            id, userName, userAvatar, createdAt.substring(0, 10), title, content, likes, commentCount, imageUrl
+                            id, ownerId, userName, userAvatar, formatRelative(createdAt), title, content, likes, commentCount, imageUrl, createdAt
                         ));
                     }
                     requireActivity().runOnUiThread(() -> {
@@ -636,6 +706,7 @@ public class CommunityFragment extends Fragment {
     // Inner class for Community Post model
     public static class CommunityPost {
         private String id;
+        private String ownerId;
         private String userName;
         private String userAvatar;
         private String postTime;
@@ -644,10 +715,12 @@ public class CommunityFragment extends Fragment {
         private int likeCount;
         private int commentCount;
         private String imageUrl;
+        private String createdAtRaw;
         
-        public CommunityPost(String id, String userName, String userAvatar, String postTime, 
-                           String category, String content, int likeCount, int commentCount, String imageUrl) {
+        public CommunityPost(String id, String ownerId, String userName, String userAvatar, String postTime, 
+                           String category, String content, int likeCount, int commentCount, String imageUrl, String createdAtRaw) {
             this.id = id;
+            this.ownerId = ownerId;
             this.userName = userName;
             this.userAvatar = userAvatar;
             this.postTime = postTime;
@@ -656,9 +729,11 @@ public class CommunityFragment extends Fragment {
             this.likeCount = likeCount;
             this.commentCount = commentCount;
             this.imageUrl = imageUrl;
+            this.createdAtRaw = createdAtRaw;
         }
         
         public String getId() { return id; }
+        public String getOwnerId() { return ownerId; }
         public String getUserName() { return userName; }
         public String getUserAvatar() { return userAvatar; }
         public String getPostTime() { return postTime; }
@@ -667,6 +742,7 @@ public class CommunityFragment extends Fragment {
         public int getLikeCount() { return likeCount; }
         public int getCommentCount() { return commentCount; }
         public String getImageUrl() { return imageUrl; }
+        public String getCreatedAtRaw() { return createdAtRaw; }
         
         public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
     }

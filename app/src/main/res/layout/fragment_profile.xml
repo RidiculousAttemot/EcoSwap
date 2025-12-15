@@ -618,9 +618,9 @@
                     android:layout_marginEnd="16dp"
                     android:alpha="0.5" />
 
-                <!-- Saved Items -->
+                <!-- Notifications -->
                 <LinearLayout
-                    android:id="@+id/btnSavedItems"
+                    android:id="@+id/btnNotifications"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="?attr/selectableItemBackground"
@@ -638,9 +638,9 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:layout_gravity="center"
-                            android:contentDescription="Saved Items"
-                            android:src="@drawable/ic_saved"
-                            app:tint="@color/error_red" />
+                            android:contentDescription="Notifications"
+                            android:src="@drawable/ic_notifications"
+                            app:tint="@color/primary_blue" />
 
                     </FrameLayout>
 
@@ -649,14 +649,14 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="18dp"
                         android:layout_weight="1"
-                        android:text="Saved Items"
+                        android:text="Notifications"
                         android:textColor="@color/text_primary"
                         android:textSize="16sp" />
 
                     <ImageView
                         android:layout_width="20dp"
                         android:layout_height="20dp"
-                        android:contentDescription="View saved"
+                        android:contentDescription="View notifications"
                         android:src="@drawable/ic_chevron_right"
                         app:tint="@color/text_hint" />
 
