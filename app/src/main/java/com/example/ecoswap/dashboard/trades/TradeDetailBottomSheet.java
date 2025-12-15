@@ -48,6 +48,7 @@ public class TradeDetailBottomSheet extends BottomSheetDialogFragment {
     private String counterpartyId;
     private String counterpartyName;
     private String currentUserId;
+    private boolean ratingAvailable;
 
     public static TradeDetailBottomSheet newInstance(@NonNull TradeRecord record, @NonNull String currentUserId) {
         Bundle args = new Bundle();
@@ -91,6 +92,10 @@ public class TradeDetailBottomSheet extends BottomSheetDialogFragment {
         counterpartyId = args.getString(ARG_COUNTERPARTY_ID);
         counterpartyName = args.getString(ARG_COUNTERPARTY_NAME);
         currentUserId = args.getString(ARG_CURRENT_USER);
+        ratingAvailable = !TextUtils.isEmpty(tradeId) && !TextUtils.isEmpty(counterpartyId) && !TextUtils.isEmpty(currentUserId);
+        if (TextUtils.isEmpty(counterpartyName) && !TextUtils.isEmpty(counterpartyId)) {
+            fetchCounterpartyName();
+        }
     }
 
     private void bindUi(@NonNull View root) {
@@ -120,9 +125,16 @@ public class TradeDetailBottomSheet extends BottomSheetDialogFragment {
         String proofUrl = args.getString(ARG_PROOF_URL);
 
         tvTitle.setText(tradeType != null && tradeType.equals("donation") ? getString(R.string.listing_type_donation) : getString(R.string.listing_type_swap));
-        tvPartner.setText(!TextUtils.isEmpty(counterpartyName)
+        if ("donation".equalsIgnoreCase(tradeType)) {
+            String donationPartner = !TextUtils.isEmpty(counterpartyName)
+                ? counterpartyName
+                : getString(R.string.trade_history_receiver_placeholder);
+            tvPartner.setText(getString(R.string.trade_history_donation_with, donationPartner));
+        } else {
+            tvPartner.setText(!TextUtils.isEmpty(counterpartyName)
                 ? getString(R.string.trade_history_swap_with, counterpartyName)
                 : getString(R.string.trade_history_partner_unknown));
+        }
         tvStatus.setText(R.string.trade_history_confirmed_label);
 
         tvPrimaryTitle.setText(!TextUtils.isEmpty(primaryTitle) ? primaryTitle : getString(R.string.app_name));
@@ -158,11 +170,17 @@ public class TradeDetailBottomSheet extends BottomSheetDialogFragment {
             tvProof.setText(R.string.trade_detail_no_proof);
         }
 
+        if (!ratingAvailable) {
+            ratingBar.setIsIndicator(true);
+            btnSubmit.setEnabled(false);
+            tvRatingState.setText(R.string.trade_detail_rating_unavailable);
+        }
+
         btnSubmit.setOnClickListener(v -> submitRating());
     }
 
     private void loadExistingReview() {
-        if (supabaseClient == null || TextUtils.isEmpty(tradeId) || TextUtils.isEmpty(currentUserId)) {
+        if (supabaseClient == null || !ratingAvailable) {
             return;
         }
         String endpoint = "/rest/v1/reviews?select=rating,comment&trade_id=eq." + tradeId + "&rater_id=eq." + currentUserId;
@@ -192,8 +210,47 @@ public class TradeDetailBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
+    private void fetchCounterpartyName() {
+        if (supabaseClient == null || TextUtils.isEmpty(counterpartyId)) {
+            return;
+        }
+        String endpoint = "/rest/v1/profiles?select=name&id=eq." + counterpartyId;
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject profile = array.getJSONObject(0);
+                        String name = profile.optString("name", null);
+                        if (!TextUtils.isEmpty(name)) {
+                            counterpartyName = name;
+                            View root = getView();
+                            if (root != null) {
+                                TextView tvPartner = root.findViewById(R.id.tvPartner);
+                                if (tvPartner != null) {
+                                    if ("donation".equalsIgnoreCase(tradeType)) {
+                                        tvPartner.setText(getString(R.string.trade_history_donation_with, name));
+                                    } else {
+                                        tvPartner.setText(getString(R.string.trade_history_swap_with, name));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) { }
+            }
+
+            @Override
+            public void onError(String error) {
+                // best-effort
+            }
+        });
+    }
+
     private void submitRating() {
-        if (supabaseClient == null || TextUtils.isEmpty(tradeId) || TextUtils.isEmpty(counterpartyId) || TextUtils.isEmpty(currentUserId)) {
+        if (supabaseClient == null || !ratingAvailable) {
+            Toast.makeText(requireContext(), R.string.trade_detail_rating_unavailable, Toast.LENGTH_SHORT).show();
             return;
         }
         int rating = Math.round(ratingBar.getRating());

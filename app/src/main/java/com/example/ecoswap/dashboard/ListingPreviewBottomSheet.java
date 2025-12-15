@@ -234,29 +234,7 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
 
         tvConditionBadge.setText(resolvedCondition);
 
-        List<String> images = new ArrayList<>();
-        if (!TextUtils.isEmpty(imageUrl)) {
-            if (imageUrl.contains(",")) {
-                String[] parts = imageUrl.split(",");
-                for (String part : parts) {
-                    if (!TextUtils.isEmpty(part.trim())) {
-                        images.add(part.trim());
-                    }
-                }
-            } else {
-                images.add(imageUrl);
-            }
-        }
-
-        if (images.isEmpty()) {
-            // Add a placeholder or handle empty state
-            // For now, maybe add a null to show placeholder in adapter?
-            // Or just hide slider?
-            // Let's show placeholder in adapter if list is empty?
-            // Actually, adapter expects strings.
-            // Let's add a dummy empty string if list is empty to show placeholder
-            // But better to just handle it in adapter or here.
-        }
+        List<String> images = buildImageList(imageUrl);
 
         ImageSliderAdapter sliderAdapter = new ImageSliderAdapter(requireContext(), images);
         vpImageSlider.setAdapter(sliderAdapter);
@@ -644,5 +622,27 @@ public class ListingPreviewBottomSheet extends BottomSheetDialogFragment {
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US);
         sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
         return sdf.format(new java.util.Date(System.currentTimeMillis()));
+    }
+
+    private List<String> buildImageList(@Nullable String rawImages) {
+        List<String> images = new ArrayList<>();
+        if (!TextUtils.isEmpty(rawImages)) {
+            String trimmed = rawImages.trim();
+            if (trimmed.contains(",")) {
+                String[] parts = trimmed.split(",");
+                for (String part : parts) {
+                    String candidate = part != null ? part.trim() : null;
+                    if (!TextUtils.isEmpty(candidate)) {
+                        images.add(candidate);
+                    }
+                }
+            } else {
+                images.add(trimmed);
+            }
+        }
+        if (images.isEmpty()) {
+            images.add("");
+        }
+        return images;
     }
 }

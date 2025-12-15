@@ -577,6 +577,45 @@ public class SupabaseClient {
             () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
         );
     }
+
+    /**
+     * Delete rows using a fully specified REST endpoint (supports complex filters with OR).
+     */
+    public void deleteWithFilter(String endpoint, OnDatabaseCallback callback) {
+        Runnable requestRunnable = () -> {
+            Request.Builder requestBuilder = new Request.Builder()
+                    .url(supabaseUrl + endpoint)
+                    .delete()
+                    .addHeader("apikey", supabaseKey)
+                    .addHeader("Content-Type", "application/json");
+
+            if (accessToken != null) {
+                requestBuilder.addHeader("Authorization", "Bearer " + accessToken);
+            }
+
+            httpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    mainHandler.post(() -> callback.onError("Network error: " + e.getMessage()));
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    String responseBody = response.body() != null ? response.body().string() : "";
+                    if (response.isSuccessful()) {
+                        mainHandler.post(() -> callback.onSuccess(responseBody));
+                    } else {
+                        mainHandler.post(() -> callback.onError("Delete failed: " + responseBody));
+                    }
+                }
+            });
+        };
+
+        runWithSession(
+            requestRunnable,
+            () -> mainHandler.post(() -> callback.onError("Session expired. Please log in again."))
+        );
+    }
     
     // ========== Storage Methods ==========
     

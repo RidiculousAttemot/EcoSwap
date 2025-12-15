@@ -4,6 +4,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -102,6 +104,10 @@ public class ChatFragment extends Fragment {
     private MaterialButton btnPeerDismiss;
     private ConversationMetadataStore conversationMetadataStore;
 
+    private Handler chatRefreshHandler;
+    private Runnable chatRefreshRunnable;
+    private static final long CHAT_REFRESH_INTERVAL_MS = 5000L;
+
     private String listingOwnerId;
     private boolean isListingDetailsExpanded = false;
     private boolean hasListingContext = false;
@@ -110,7 +116,10 @@ public class ChatFragment extends Fragment {
     private String resolvedListingImageUrl;
     private String resolvedListingType;
     private String presetMessage;
+    private String conversationCounterpartyId;
     private boolean listingLookupInFlight = false;
+    private boolean listingCompletionFinalized = false;
+    private boolean tradeRecordPersisted = false;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -118,7 +127,7 @@ public class ChatFragment extends Fragment {
         if (getArguments() != null) {
             resolvedListingId = sanitizeMetadataValue(getArguments().getString(ARG_LISTING_ID));
             resolvedListingTitle = sanitizeMetadataValue(getArguments().getString(ARG_LISTING_TITLE));
-            resolvedListingImageUrl = sanitizeMetadataValue(getArguments().getString(ARG_IMAGE_URL));
+            resolvedListingImageUrl = primaryImage(sanitizeMetadataValue(getArguments().getString(ARG_IMAGE_URL)));
             listingOwnerId = sanitizeMetadataValue(getArguments().getString(ARG_OWNER_ID));
             resolvedListingType = sanitizeMetadataValue(getArguments().getString(ARG_LISTING_TYPE));
             presetMessage = sanitizeMetadataValue(getArguments().getString(ARG_PRESET_MESSAGE));
@@ -150,7 +159,7 @@ public class ChatFragment extends Fragment {
         updateSendAvailability();
         applyPresetMessage();
         loadParticipantProfiles();
-        loadConversationHistory();
+        loadConversationHistory(false);
         loadListingContext();
         return view;
     }
@@ -224,6 +233,9 @@ public class ChatFragment extends Fragment {
             } else if (id == R.id.action_report) {
                 launchReport();
                 return true;
+            } else if (id == R.id.action_delete_chat) {
+                confirmDeleteChat();
+                return true;
             }
             return false;
         });
@@ -242,13 +254,19 @@ public class ChatFragment extends Fragment {
     private boolean isConversationArchived() {
         String counterpartId = getOwnerIdArg();
         String listingId = getListingId();
-        return conversationMetadataStore != null && conversationMetadataStore.isArchived(counterpartId, listingId);
+        if (conversationMetadataStore == null || TextUtils.isEmpty(counterpartId)) {
+            return false;
+        }
+        return conversationMetadataStore.isArchived(counterpartId, listingId);
     }
 
     private boolean isConversationBlocked() {
         String counterpartId = getOwnerIdArg();
         String listingId = getListingId();
-        return conversationMetadataStore != null && conversationMetadataStore.isBlocked(counterpartId, listingId);
+        if (conversationMetadataStore == null || TextUtils.isEmpty(counterpartId)) {
+            return false;
+        }
+        return conversationMetadataStore.isBlocked(counterpartId, listingId);
     }
 
     private void toggleArchive() {
@@ -278,6 +296,63 @@ public class ChatFragment extends Fragment {
         updateSendAvailability();
         getParentFragmentManager().setFragmentResult("messages_refresh", new Bundle());
         requireActivity().getSupportFragmentManager().popBackStack();
+    }
+
+    private void confirmDeleteChat() {
+        if (getContext() == null) {
+            return;
+        }
+        new MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Delete chat")
+            .setMessage("This will remove the conversation for both participants. Delete?")
+            .setPositiveButton("Delete", (d, which) -> deleteConversation())
+            .setNegativeButton(android.R.string.cancel, null)
+            .show();
+    }
+
+    private void deleteConversation() {
+        if (supabaseClient == null || sessionManager == null) {
+            Toast.makeText(requireContext(), "Unable to delete chat", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String currentUserId = sessionManager.getUserId();
+        String otherUserId = getOwnerIdArg();
+        if (TextUtils.isEmpty(currentUserId) || TextUtils.isEmpty(otherUserId)) {
+            Toast.makeText(requireContext(), "Missing user info", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String participantsFilter = String.format(Locale.US,
+                "(and(sender_id.eq.%s,receiver_id.eq.%s),and(sender_id.eq.%s,receiver_id.eq.%s))",
+                currentUserId, otherUserId, otherUserId, currentUserId);
+
+        StringBuilder endpoint = new StringBuilder("/rest/v1/chats?or=")
+                .append(Uri.encode(participantsFilter));
+
+        String listingId = getListingId();
+        if (!TextUtils.isEmpty(listingId)) {
+            endpoint.append("&listing_id=eq.").append(listingId);
+        }
+
+        supabaseClient.deleteWithFilter(endpoint.toString(), new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                if (!isAdded()) {
+                    return;
+                }
+                Toast.makeText(requireContext(), "Chat deleted", Toast.LENGTH_SHORT).show();
+                getParentFragmentManager().setFragmentResult("messages_refresh", new Bundle());
+                requireActivity().getSupportFragmentManager().popBackStack();
+            }
+
+            @Override
+            public void onError(String error) {
+                if (!isAdded()) {
+                    return;
+                }
+                Toast.makeText(requireContext(), "Failed to delete chat: " + error, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void updateSendAvailability() {
@@ -486,12 +561,15 @@ public class ChatFragment extends Fragment {
         rvMessages.scrollToPosition(Math.max(chatAdapter.getItemCount() - 1, 0));
     }
 
-    private void loadConversationHistory() {
+    private void loadConversationHistory(boolean silent) {
         if (supabaseClient == null) {
             return;
         }
         String currentUserId = sessionManager.getUserId();
         String otherUserId = getOwnerIdArg();
+        if (!TextUtils.isEmpty(otherUserId) && !TextUtils.equals(otherUserId, currentUserId)) {
+            conversationCounterpartyId = otherUserId;
+        }
         if (TextUtils.isEmpty(currentUserId) || TextUtils.isEmpty(otherUserId)) {
             return;
         }
@@ -529,7 +607,7 @@ public class ChatFragment extends Fragment {
                                 }
                             }
                             if (!hasMeaningfulValue(resolvedListingImageUrl)) {
-                                String snapshotImage = sanitizeMetadataValue(message.optString("listing_image_url_snapshot", null));
+                                String snapshotImage = primaryImage(sanitizeMetadataValue(message.optString("listing_image_url_snapshot", null)));
                                 if (hasMeaningfulValue(snapshotImage)) {
                                     resolvedListingImageUrl = snapshotImage;
                                     applyListingPreview();
@@ -542,11 +620,15 @@ public class ChatFragment extends Fragment {
                                 message.optString("message"),
                                 formatTimestamp(message.optString("created_at"))
                         ));
+                        String senderId = message.optString("sender_id", null);
+                        if (!TextUtils.isEmpty(senderId) && !senderId.equals(currentUserId)) {
+                            conversationCounterpartyId = senderId;
+                        }
                     }
                     chatAdapter.setMessages(history);
                     rvMessages.scrollToPosition(Math.max(history.size() - 1, 0));
                 } catch (JSONException e) {
-                    if (isAdded()) {
+                    if (isAdded() && !silent) {
                         Toast.makeText(requireContext(), R.string.chat_history_error, Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -554,11 +636,62 @@ public class ChatFragment extends Fragment {
 
             @Override
             public void onError(String error) {
-                if (isAdded()) {
+                if (isAdded() && !silent) {
                     Toast.makeText(requireContext(), R.string.chat_history_error, Toast.LENGTH_SHORT).show();
                 }
             }
         });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        startChatRefreshLoop();
+    }
+
+    @Override
+    public void onPause() {
+        stopChatRefreshLoop();
+        super.onPause();
+    }
+
+    @Override
+    public void onDestroyView() {
+        stopChatRefreshLoop();
+        super.onDestroyView();
+    }
+
+    private void startChatRefreshLoop() {
+        if (chatRefreshHandler == null) {
+            chatRefreshHandler = new Handler(Looper.getMainLooper());
+        }
+        if (chatRefreshRunnable == null) {
+            chatRefreshRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (!isAdded()) {
+                        return;
+                    }
+                    if (!listingCompletionFinalized) {
+                        loadListingContext();
+                    }
+                    loadConversationHistory(true);
+                    if (chatRefreshHandler != null) {
+                        chatRefreshHandler.postDelayed(this, CHAT_REFRESH_INTERVAL_MS);
+                    }
+                }
+            };
+        }
+        stopChatRefreshLoop();
+        if (chatRefreshHandler != null && chatRefreshRunnable != null) {
+            chatRefreshHandler.postDelayed(chatRefreshRunnable, CHAT_REFRESH_INTERVAL_MS);
+        }
+    }
+
+    private void stopChatRefreshLoop() {
+        if (chatRefreshHandler != null && chatRefreshRunnable != null) {
+            chatRefreshHandler.removeCallbacks(chatRefreshRunnable);
+        }
     }
 
     private void markMessagesAsRead(String currentUserId, String otherUserId) {
@@ -602,10 +735,10 @@ public class ChatFragment extends Fragment {
                         : "id,message,created_at,sender_id,receiver_id")
                 .addQueryParameter("or", participantsFilter)
                 .addQueryParameter("order", "created_at.asc");
-        // Removed strict listing_id filter to show full history
-        // if (ChatFeatureCompat.isListingMetadataSupported() && !TextUtils.isEmpty(listingId)) {
-        //    builder.addQueryParameter("listing_id", "eq." + listingId);
-        // }
+        if (ChatFeatureCompat.isListingMetadataSupported() && !TextUtils.isEmpty(listingId)) {
+            // Keep threads scoped to the selected listing to avoid jumping to older completed chats.
+            builder.addQueryParameter("listing_id", "eq." + listingId);
+        }
         return builder.build().toString().replace(supabaseClient.getSupabaseUrl(), "");
     }
 
@@ -650,7 +783,7 @@ public class ChatFragment extends Fragment {
                 try {
                     JSONArray array = new JSONArray(data.toString());
                     if (array.length() == 0) {
-                        hideListingContext();
+                        loadCompletionFromTradeRecords();
                         return;
                     }
                     JSONObject listing = array.getJSONObject(0);
@@ -675,7 +808,7 @@ public class ChatFragment extends Fragment {
                     applyListingPreview();
                     bindListingContext(rawCategory, rawStatus);
                 } catch (JSONException e) {
-                    showListingContextFallback();
+                    loadCompletionFromTradeRecords();
                 }
             }
 
@@ -684,7 +817,7 @@ public class ChatFragment extends Fragment {
                 if (!isAdded()) {
                     return;
                 }
-                showListingContextFallback();
+                loadCompletionFromTradeRecords();
             }
         });
     }
@@ -694,6 +827,7 @@ public class ChatFragment extends Fragment {
             return;
         }
         hasListingContext = true;
+        listingCompletionFinalized = isCompletedStatus(rawStatus);
         String categoryLabel = mapCategoryLabel(rawCategory);
         String statusLabel = mapStatusLabel(rawStatus);
         tvListingCategoryLabel.setText(getString(R.string.chat_listing_category_label, categoryLabel));
@@ -806,6 +940,102 @@ public class ChatFragment extends Fragment {
                 }
             }
         });
+
+    }
+
+    private void loadCompletionFromTradeRecords() {
+        if (supabaseClient == null) {
+            showListingContextFallback();
+            return;
+        }
+        String listingId = getListingId();
+        if (TextUtils.isEmpty(listingId)) {
+            showListingContextFallback();
+            return;
+        }
+        querySwapCompletion(listingId);
+    }
+
+    private void querySwapCompletion(@NonNull String listingId) {
+        String endpoint = String.format(Locale.US,
+                "/rest/v1/swaps?select=status,completed_at&post1_id=eq.%s&limit=1",
+                listingId);
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                if (!isAdded()) {
+                    return;
+                }
+                if (!applyCompletionFromTrade(data)) {
+                    queryDonationCompletion(listingId);
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                if (!isAdded()) {
+                    return;
+                }
+                queryDonationCompletion(listingId);
+            }
+        });
+    }
+
+    private void queryDonationCompletion(@NonNull String listingId) {
+        String endpoint = String.format(Locale.US,
+                "/rest/v1/donations?select=status,completed_at&post_id=eq.%s&limit=1",
+                listingId);
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                if (!isAdded()) {
+                    return;
+                }
+                if (!applyCompletionFromTrade(data)) {
+                    showListingContextFallback();
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                if (!isAdded()) {
+                    return;
+                }
+                showListingContextFallback();
+            }
+        });
+    }
+
+    private boolean applyCompletionFromTrade(Object data) {
+        try {
+            JSONArray array = new JSONArray(data.toString());
+            if (array.length() == 0) {
+                return false;
+            }
+            JSONObject record = array.getJSONObject(0);
+            String status = sanitizeMetadataValue(record.optString("status", null));
+            if (TextUtils.isEmpty(status)) {
+                return false;
+            }
+            bindCompletionStatus(status);
+            return true;
+        } catch (JSONException e) {
+            return false;
+        }
+    }
+
+    private void bindCompletionStatus(@NonNull String rawStatus) {
+        listingCompletionFinalized = isCompletedStatus(rawStatus);
+        if (tvListingCategoryLabel != null && TextUtils.isEmpty(tvListingCategoryLabel.getText())) {
+            tvListingCategoryLabel.setText(getString(R.string.chat_listing_category_label, getString(R.string.category_other)));
+        }
+        if (tvListingStatusLabel != null) {
+            tvListingStatusLabel.setText(mapStatusLabel(rawStatus));
+            tvListingStatusLabel.setVisibility(View.VISIBLE);
+        }
+        hasListingContext = true;
+        updateListingCardVisibility();
+        maybeShowPeerCompletionPrompt(rawStatus);
     }
 
     private void updateListingCardVisibility() {
@@ -855,111 +1085,30 @@ public class ChatFragment extends Fragment {
     private void acceptPeerCompletion() {
         hidePeerCompletionPrompt();
         String status = mapStatusForAcceptance();
+        listingCompletionFinalized = isCompletedStatus(status);
         if (tvListingStatusLabel != null) {
             tvListingStatusLabel.setText(mapStatusLabel(status));
             tvListingStatusLabel.setVisibility(View.VISIBLE);
         }
         updateListingStatusAndPersist(status);
-        Bundle result = new Bundle();
-        result.putBoolean("refresh", true);
-        result.putBoolean("openCompleted", true);
-        getParentFragmentManager().setFragmentResult("listing_updates", result);
-        Toast.makeText(requireContext(), R.string.chat_mark_complete_success, Toast.LENGTH_SHORT).show();
+    }
+
+    private String mapStatusForAcceptance() {
+        return isDonationListing() ? "donated" : "swapped";
     }
 
     private boolean isDonationListing() {
         if (!TextUtils.isEmpty(resolvedListingType)) {
-            return resolvedListingType.equalsIgnoreCase("donation");
+            return "donation".equalsIgnoreCase(resolvedListingType);
         }
-        if (tvListingStatusLabel != null) {
-            CharSequence currentLabel = tvListingStatusLabel.getText();
-            if (currentLabel != null && currentLabel.toString().toLowerCase(Locale.US).contains("donat")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Nullable
-    private String mapStatusForAcceptance() {
-        if (isDonationListing()) {
-            return "donated";
-        }
-        return "swapped";
-    }
-
-    private void persistTradeRecord(String status) {
-        if (supabaseClient == null || TextUtils.isEmpty(getListingId())) {
-            updateImpactForInvolvedUsers(status);
-            return;
-        }
-        boolean isDonation = "donated".equals(status);
-        if (isDonation) {
-            createDonationRecord(status);
-        } else {
-            createSwapRecord(status);
-        }
-    }
-
-    private void createSwapRecord(String status) {
-        String listingId = getListingId();
-        String ownerId = listingOwnerId != null ? listingOwnerId : getOwnerIdArg();
-        String currentUserId = sessionManager != null ? sessionManager.getUserId() : null;
-        if (TextUtils.isEmpty(listingId) || TextUtils.isEmpty(ownerId) || TextUtils.isEmpty(currentUserId)) {
-            updateImpactForInvolvedUsers(status);
-            return;
-        }
-        JsonObject payload = new JsonObject();
-        payload.addProperty("post1_id", listingId);
-        payload.addProperty("user1_id", ownerId);
-        payload.addProperty("user2_id", currentUserId);
-        payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", nowIsoUtc());
-        supabaseClient.insert("swaps", payload, new SupabaseClient.OnDatabaseCallback() {
-            @Override
-            public void onSuccess(Object data) {
-                updateImpactForInvolvedUsers(status);
-            }
-
-            @Override
-            public void onError(String error) {
-                updateImpactForInvolvedUsers(status);
-            }
-        });
-    }
-
-    private void createDonationRecord(String status) {
-        String listingId = getListingId();
-        String ownerId = listingOwnerId != null ? listingOwnerId : getOwnerIdArg();
-        String currentUserId = sessionManager != null ? sessionManager.getUserId() : null;
-        if (TextUtils.isEmpty(listingId) || TextUtils.isEmpty(ownerId) || TextUtils.isEmpty(currentUserId)) {
-            updateImpactForInvolvedUsers(status);
-            return;
-        }
-        JsonObject payload = new JsonObject();
-        payload.addProperty("post_id", listingId);
-        payload.addProperty("donor_id", ownerId);
-        payload.addProperty("receiver_name", "Peer");
-        payload.addProperty("status", "completed");
-        payload.addProperty("completed_at", nowIsoUtc());
-        if (!TextUtils.isEmpty(currentUserId) && !currentUserId.equals(ownerId)) {
-            payload.addProperty("receiver_id", currentUserId);
-        }
-
-        supabaseClient.insert("donations", payload, new SupabaseClient.OnDatabaseCallback() {
-            @Override
-            public void onSuccess(Object data) {
-                updateImpactForInvolvedUsers(status);
-            }
-
-            @Override
-            public void onError(String error) {
-                updateImpactForInvolvedUsers(status);
-            }
-        });
+        CharSequence categoryLabel = tvListingCategoryLabel != null ? tvListingCategoryLabel.getText() : null;
+        return categoryLabel != null && categoryLabel.toString().toLowerCase(Locale.US).contains("donation");
     }
 
     private void promptCompletion() {
+        if (listingCompletionFinalized) {
+            return;
+        }
         if (!isCurrentUserListingOwner() || TextUtils.isEmpty(getListingId())) {
             openMyListings(true);
             return;
@@ -980,6 +1129,10 @@ public class ChatFragment extends Fragment {
     }
 
     private void markListingComplete() {
+        if (listingCompletionFinalized) {
+            Toast.makeText(requireContext(), R.string.chat_mark_complete_success, Toast.LENGTH_SHORT).show();
+            return;
+        }
         String listingId = getListingId();
         if (supabaseClient == null || TextUtils.isEmpty(listingId)) {
             return;
@@ -996,6 +1149,7 @@ public class ChatFragment extends Fragment {
                     tvListingStatusLabel.setText(mapStatusLabel(targetStatus));
                     tvListingStatusLabel.setVisibility(View.VISIBLE);
                 }
+                listingCompletionFinalized = true;
                 Bundle result = new Bundle();
                 result.putBoolean("refresh", true);
                 result.putBoolean("openCompleted", true);
@@ -1010,10 +1164,216 @@ public class ChatFragment extends Fragment {
         });
     }
 
+    private void persistTradeRecord(String status) {
+        if (tradeRecordPersisted) {
+            return;
+        }
+        String owner = !TextUtils.isEmpty(listingOwnerId) ? listingOwnerId : getOwnerIdArg();
+        String currentUser = sessionManager != null ? sessionManager.getUserId() : null;
+        String listingId = getListingId();
+        String counterparty = resolveTradeCounterpartyId();
+        // If current user is not the owner, peer should be the owner
+        if (TextUtils.isEmpty(counterparty) && !TextUtils.equals(owner, currentUser)) {
+            counterparty = owner;
+        }
+
+        // Avoid creating a self-self trade which would only show for the owner and duplicate cards
+        if (!TextUtils.isEmpty(counterparty) && TextUtils.equals(counterparty, owner)) {
+            counterparty = null;
+        }
+
+        if (TextUtils.isEmpty(counterparty) && supabaseClient != null && !TextUtils.isEmpty(currentUser)) {
+            inferCounterpartyAndPersist(status, !TextUtils.isEmpty(listingId));
+            return;
+        }
+
+        if (supabaseClient == null || TextUtils.isEmpty(listingId) || TextUtils.isEmpty(owner) || TextUtils.isEmpty(counterparty)) {
+            tradeRecordPersisted = true;
+            updateImpactForInvolvedUsers(status);
+            return;
+        }
+
+        boolean isDonation = "donated".equalsIgnoreCase(status);
+        String tradeStatus = "completed"; // normalize trade table status so peers see it in Completed
+        if (isDonation) {
+            createDonationRecord(owner, counterparty, tradeStatus, listingId);
+        } else {
+            createSwapRecord(owner, counterparty, tradeStatus, listingId);
+        }
+    }
+
+    private String resolveTradeCounterpartyId() {
+        String currentUser = sessionManager != null ? sessionManager.getUserId() : null;
+        String ownerArg = getOwnerIdArg();
+
+        // Prefer the other participant captured from chat
+        if (!TextUtils.isEmpty(conversationCounterpartyId) && !TextUtils.equals(conversationCounterpartyId, ownerArg)) {
+            return conversationCounterpartyId;
+        }
+
+        // If current user is the peer (not owner), use the owner as counterparty
+        if (!TextUtils.isEmpty(ownerArg) && !TextUtils.equals(ownerArg, currentUser)) {
+            return ownerArg;
+        }
+
+        // If current user is the owner, we need a peer id; conversationCounterpartyId could be same as owner; ignore self
+        return null;
+    }
+
+    private void createSwapRecord(String ownerId, String counterpartyId, String status, String listingId) {
+        String endpoint = String.format(Locale.US,
+                "/rest/v1/swaps?select=id&post1_id=eq.%s&or=(and(user1_id.eq.%s,user2_id.eq.%s),and(user1_id.eq.%s,user2_id.eq.%s))&limit=1",
+                listingId, ownerId, counterpartyId, counterpartyId, ownerId);
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject existing = array.getJSONObject(0);
+                        String swapId = existing.optString("id", null);
+                        if (!TextUtils.isEmpty(swapId)) {
+                            updateSwapStatus(swapId, status);
+                            return;
+                        }
+                    }
+                } catch (JSONException ignored) {
+                    // fall through to insert
+                }
+                insertSwapRecord(ownerId, counterpartyId, status, listingId);
+            }
+
+            @Override
+            public void onError(String error) {
+                insertSwapRecord(ownerId, counterpartyId, status, listingId);
+            }
+        });
+    }
+
+    private void insertSwapRecord(String ownerId, String counterpartyId, String status, String listingId) {
+        // Enforce deterministic ordering: owner is user1, peer is user2
+        JsonObject payload = new JsonObject();
+        payload.addProperty("post1_id", listingId);
+        payload.addProperty("user1_id", ownerId);
+        payload.addProperty("user2_id", counterpartyId);
+        payload.addProperty("status", status);
+        payload.addProperty("completed_at", nowIsoUtc());
+        supabaseClient.insert("swaps", payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+
+            @Override
+            public void onError(String error) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+        });
+    }
+
+    private void updateSwapStatus(String swapId, String status) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("status", status);
+        payload.addProperty("completed_at", nowIsoUtc());
+        supabaseClient.update("swaps", swapId, payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+
+            @Override
+            public void onError(String error) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+        });
+    }
+
+    private void createDonationRecord(String ownerId, String counterpartyId, String status, String listingId) {
+        String endpoint = String.format(Locale.US,
+                "/rest/v1/donations?select=id&post_id=eq.%s&or=(and(donor_id.eq.%s,receiver_id.eq.%s),and(donor_id.eq.%s,receiver_id.eq.%s))&limit=1",
+                listingId, ownerId, counterpartyId, counterpartyId, ownerId);
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject existing = array.getJSONObject(0);
+                        String donationId = existing.optString("id", null);
+                        if (!TextUtils.isEmpty(donationId)) {
+                            updateDonationStatus(donationId, status);
+                            return;
+                        }
+                    }
+                } catch (JSONException ignored) {
+                    // fall through to insert
+                }
+                insertDonationRecord(ownerId, counterpartyId, status, listingId);
+            }
+
+            @Override
+            public void onError(String error) {
+                insertDonationRecord(ownerId, counterpartyId, status, listingId);
+            }
+        });
+    }
+
+    private void insertDonationRecord(String ownerId, String counterpartyId, String status, String listingId) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("post_id", listingId);
+        payload.addProperty("donor_id", ownerId);
+        payload.addProperty("receiver_id", counterpartyId);
+        payload.addProperty("receiver_name", "Peer");
+        payload.addProperty("status", status);
+        payload.addProperty("completed_at", nowIsoUtc());
+
+        supabaseClient.insert("donations", payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+
+            @Override
+            public void onError(String error) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+        });
+    }
+
+    private void updateDonationStatus(String donationId, String status) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("status", status);
+        payload.addProperty("completed_at", nowIsoUtc());
+        supabaseClient.update("donations", donationId, payload, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+
+            @Override
+            public void onError(String error) {
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+        });
+    }
+
     private void updateListingStatusAndPersist(String status) {
         String listingId = getListingId();
-        if (supabaseClient == null || TextUtils.isEmpty(listingId)) {
+        if (supabaseClient == null) {
             persistTradeRecord(status);
+            return;
+        }
+        if (TextUtils.isEmpty(listingId)) {
+            // Try to infer listing id from conversation metadata before persisting
+            inferListingIdAndPersist(status);
             return;
         }
         JsonObject payload = new JsonObject();
@@ -1032,18 +1392,153 @@ public class ChatFragment extends Fragment {
         });
     }
 
+    private void inferListingIdAndPersist(String status) {
+        if (supabaseClient == null || sessionManager == null) {
+            persistTradeRecord(status);
+            return;
+        }
+        String currentUser = sessionManager.getUserId();
+        String counterpartId = getOwnerIdArg();
+        if (TextUtils.isEmpty(currentUser) || TextUtils.isEmpty(counterpartId)) {
+            persistTradeRecord(status);
+            return;
+        }
+
+        HttpUrl baseUrl = HttpUrl.parse(supabaseClient.getSupabaseUrl());
+        if (baseUrl == null) {
+            persistTradeRecord(status);
+            return;
+        }
+
+        String participantsFilter = String.format(Locale.US,
+                "(and(sender_id.eq.%s,receiver_id.eq.%s),and(sender_id.eq.%s,receiver_id.eq.%s))",
+                currentUser, counterpartId, counterpartId, currentUser);
+        HttpUrl.Builder builder = baseUrl.newBuilder()
+                .addPathSegments("rest/v1/chats")
+                .addQueryParameter("select", "listing_id")
+                .addQueryParameter("or", participantsFilter)
+                .addQueryParameter("listing_id", "is.not.null")
+                .addQueryParameter("order", "created_at.desc")
+                .addQueryParameter("limit", "1");
+        String endpoint = builder.build().toString().replace(supabaseClient.getSupabaseUrl(), "");
+
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject row = array.getJSONObject(0);
+                        String listingId = row.optString("listing_id", null);
+                        if (!TextUtils.isEmpty(listingId)) {
+                            resolvedListingId = listingId;
+                        }
+                    }
+                } catch (JSONException ignored) { }
+                persistTradeRecord(status);
+            }
+
+            @Override
+            public void onError(String error) {
+                persistTradeRecord(status);
+            }
+        });
+    }
+
+    private void inferCounterpartyAndPersist(String status, boolean restrictToListing) {
+        if (supabaseClient == null || sessionManager == null) {
+            tradeRecordPersisted = true;
+            updateImpactForInvolvedUsers(status);
+            return;
+        }
+        String currentUser = sessionManager.getUserId();
+        String owner = !TextUtils.isEmpty(listingOwnerId) ? listingOwnerId : getOwnerIdArg();
+        if (TextUtils.isEmpty(currentUser) || TextUtils.isEmpty(owner)) {
+            tradeRecordPersisted = true;
+            updateImpactForInvolvedUsers(status);
+            return;
+        }
+
+        HttpUrl baseUrl = HttpUrl.parse(supabaseClient.getSupabaseUrl());
+        if (baseUrl == null) {
+            tradeRecordPersisted = true;
+            updateImpactForInvolvedUsers(status);
+            return;
+        }
+
+        String participantsFilter = String.format(Locale.US,
+                "(and(sender_id.eq.%s,receiver_id.eq.%s),and(sender_id.eq.%s,receiver_id.eq.%s))",
+                currentUser, owner, owner, currentUser);
+        HttpUrl.Builder builder = baseUrl.newBuilder()
+                .addPathSegments("rest/v1/chats")
+                .addQueryParameter("select", "sender_id,receiver_id")
+                .addQueryParameter("or", participantsFilter)
+                .addQueryParameter("order", "created_at.desc")
+                .addQueryParameter("limit", "1");
+        String listingId = getListingId();
+        if (restrictToListing && !TextUtils.isEmpty(listingId)) {
+            builder.addQueryParameter("listing_id", "eq." + listingId);
+        }
+        String endpoint = builder.build().toString().replace(supabaseClient.getSupabaseUrl(), "");
+
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject chat = array.getJSONObject(0);
+                        String sender = sanitizeMetadataValue(chat.optString("sender_id", null));
+                        String receiver = sanitizeMetadataValue(chat.optString("receiver_id", null));
+                        String inferred = currentUser.equals(sender) ? receiver : sender;
+                        if (!TextUtils.isEmpty(inferred) && !TextUtils.equals(inferred, owner)) {
+                            conversationCounterpartyId = inferred;
+                        }
+                    }
+                } catch (JSONException ignored) {
+                    // fall through
+                }
+
+                if (TextUtils.isEmpty(conversationCounterpartyId)) {
+                    if (restrictToListing) {
+                        inferCounterpartyAndPersist(status, false);
+                        return;
+                    }
+                    tradeRecordPersisted = true;
+                    updateImpactForInvolvedUsers(status);
+                    return;
+                }
+                persistTradeRecord(status);
+            }
+
+            @Override
+            public void onError(String error) {
+                if (restrictToListing) {
+                    inferCounterpartyAndPersist(status, false);
+                    return;
+                }
+                tradeRecordPersisted = true;
+                updateImpactForInvolvedUsers(status);
+            }
+        });
+    }
+
     private void updateImpactForInvolvedUsers(String status) {
         String owner = listingOwnerId;
         if (TextUtils.isEmpty(owner)) {
             owner = getOwnerIdArg();
         }
         String currentUser = sessionManager != null ? sessionManager.getUserId() : null;
+        String counterparty = resolveTradeCounterpartyId();
         List<String> targetUsers = new ArrayList<>();
         if (!TextUtils.isEmpty(owner)) {
             targetUsers.add(owner);
         }
         if (!TextUtils.isEmpty(currentUser) && !currentUser.equals(owner)) {
             targetUsers.add(currentUser);
+        }
+        if (!TextUtils.isEmpty(counterparty) && !targetUsers.contains(counterparty)) {
+            targetUsers.add(counterparty);
         }
         for (String user : targetUsers) {
             updateImpactForUser(user, status);
@@ -1186,7 +1681,7 @@ public class ChatFragment extends Fragment {
         if (ivListing != null) {
             if (hasPreviewImage) {
                 Glide.with(this)
-                        .load(resolvedListingImageUrl)
+                            .load(primaryImage(resolvedListingImageUrl))
                         .centerCrop()
                         .placeholder(R.drawable.ic_launcher_background)
                         .into(ivListing);
@@ -1210,7 +1705,7 @@ public class ChatFragment extends Fragment {
             return;
         }
         String normalizedTitle = sanitizeMetadataValue(resolvedListingTitle);
-        String normalizedImage = sanitizeMetadataValue(resolvedListingImageUrl);
+        String normalizedImage = primaryImage(sanitizeMetadataValue(resolvedListingImageUrl));
         String normalizedListingId = sanitizeMetadataValue(resolvedListingId);
         if (!hasMeaningfulValue(normalizedTitle)
                 && !hasMeaningfulValue(normalizedImage)
@@ -1247,7 +1742,7 @@ public class ChatFragment extends Fragment {
             resolvedListingTitle = cached.title;
         }
         if (!hasMeaningfulValue(resolvedListingImageUrl) && hasMeaningfulValue(cached.imageUrl)) {
-            resolvedListingImageUrl = cached.imageUrl;
+            resolvedListingImageUrl = primaryImage(cached.imageUrl);
         }
     }
 
@@ -1303,6 +1798,14 @@ public class ChatFragment extends Fragment {
         }
     }
 
+    private boolean isCompletedStatus(@Nullable String rawStatus) {
+        if (TextUtils.isEmpty(rawStatus)) {
+            return false;
+        }
+        String normalized = rawStatus.toLowerCase(Locale.US);
+        return normalized.equals("completed") || normalized.equals("swapped") || normalized.equals("donated");
+    }
+
     private void openMyListings(boolean openCompletedTab) {
         if (!isAdded()) {
             return;
@@ -1326,6 +1829,22 @@ public class ChatFragment extends Fragment {
             return resolvedListingId;
         }
         return null;
+    }
+
+    private String primaryImage(@Nullable String raw) {
+        if (TextUtils.isEmpty(raw)) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.contains(",")) {
+            String[] parts = trimmed.split(",");
+            for (String part : parts) {
+                if (!TextUtils.isEmpty(part) && !part.trim().isEmpty()) {
+                    return part.trim();
+                }
+            }
+        }
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String formatTimestamp(@Nullable String isoDate) {

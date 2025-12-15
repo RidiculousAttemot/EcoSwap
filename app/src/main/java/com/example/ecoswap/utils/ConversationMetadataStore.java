@@ -59,8 +59,8 @@ public class ConversationMetadataStore {
         }
         String key = buildKey(userId, normalizedListingId);
         prefs.edit().putString(key, payload.toString()).apply();
-        if (!TextUtils.isEmpty(normalizedListingId)) {
-            // Store under the "direct" key as a fallback for chats where listing_id was omitted.
+        if (TextUtils.isEmpty(normalizedListingId)) {
+            // Only store under the "direct" key when there is no listing id (direct chat).
             prefs.edit().putString(buildKey(userId, null), payload.toString()).apply();
         }
     }
@@ -129,7 +129,7 @@ public class ConversationMetadataStore {
             return null;
         }
         String encoded = prefs.getString(buildKey(userId, listingId), null);
-        if (encoded == null && !TextUtils.isEmpty(listingId)) {
+        if (encoded == null && TextUtils.isEmpty(listingId)) {
             encoded = prefs.getString(buildKey(userId, null), null);
         }
         if (TextUtils.isEmpty(encoded)) {

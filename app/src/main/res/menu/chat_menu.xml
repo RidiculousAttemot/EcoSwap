@@ -23,4 +23,8 @@
         android:title="Report User"
         android:icon="@android:drawable/ic_dialog_alert"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_delete_chat"
+        android:title="Delete Chat"
+        app:showAsAction="never" />
 </menu>

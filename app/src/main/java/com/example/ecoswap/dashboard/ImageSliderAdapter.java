@@ -1,6 +1,7 @@
 package com.example.ecoswap.dashboard;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,11 +32,13 @@ public class ImageSliderAdapter extends RecyclerView.Adapter<ImageSliderAdapter.
     @Override
     public void onBindViewHolder(@NonNull SliderViewHolder holder, int position) {
         String url = imageUrls.get(position);
+        boolean isPlaceholder = TextUtils.isEmpty(url);
         Glide.with(context)
-                .load(url)
-                .centerCrop()
-                .placeholder(R.color.background_light)
-                .into(holder.ivSliderImage);
+            .load(isPlaceholder ? R.drawable.ic_launcher_background : url)
+            .centerCrop()
+            .placeholder(R.drawable.ic_launcher_background)
+            .error(R.drawable.ic_launcher_background)
+            .into(holder.ivSliderImage);
     }
 
     @Override

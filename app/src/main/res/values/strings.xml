@@ -118,6 +118,7 @@
     <string name="trade_detail_submit_error">Couldn’t submit rating: %1$s</string>
     <string name="trade_detail_submitted">Thanks! You rated %1$d stars</string>
     <string name="trade_detail_thanks">Thanks for rating your partner.</string>
+    <string name="trade_detail_rating_unavailable">Rating unavailable for this trade.</string>
     <string name="trade_detail_rate_partner">Rate your partner</string>
     <string name="trade_detail_submit_cta">Submit rating</string>
     <string name="pickup_location_label">Pickup: %1$s</string>

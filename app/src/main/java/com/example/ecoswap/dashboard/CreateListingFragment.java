@@ -342,8 +342,10 @@ public class CreateListingFragment extends Fragment {
                 && autoFilledLongitude != null;
 
         if (matchesAutoFill) {
-            payload.addProperty("latitude", autoFilledLatitude);
-            payload.addProperty("longitude", autoFilledLongitude);
+            if (LocationFeatureCompat.areCoordinatesSupported()) {
+                payload.addProperty("latitude", autoFilledLatitude);
+                payload.addProperty("longitude", autoFilledLongitude);
+            }
             mainHandler.post(() -> dispatchListingSubmission(ownerId, listingId, payload));
             return;
         }
@@ -461,11 +463,15 @@ public class CreateListingFragment extends Fragment {
                 if (!isAdded()) {
                     return;
                 }
-                if (LocationFeatureCompat.areCoordinatesSupported() && isMissingCoordinateColumnError(error)) {
+                if (isMissingCoordinateColumnError(error)) {
                     Log.w(TAG, "Supabase rejected latitude/longitude columns; retrying without them.");
                     LocationFeatureCompat.markCoordinatesUnsupported();
-                    payload.remove("latitude");
-                    payload.remove("longitude");
+                    if (payload.has("latitude")) {
+                        payload.remove("latitude");
+                    }
+                    if (payload.has("longitude")) {
+                        payload.remove("longitude");
+                    }
                     createListing(payload);
                     return;
                 }

@@ -71,6 +71,7 @@ public class MyListingsFragment extends Fragment
     private final List<TradeRecord> tradeRecords = new ArrayList<>();
     private final List<TradeRecord> pendingTradeRecords = new ArrayList<>();
     private final Set<String> pendingProfileLookups = new HashSet<>();
+    private final Set<String> tradePostIds = new HashSet<>();
     private final Map<String, String> userNameCache = new HashMap<>();
 
     private SessionManager sessionManager;
@@ -516,14 +517,23 @@ public class MyListingsFragment extends Fragment
 
                 JSONObject post1 = swap.optJSONObject("post1");
                 JSONObject post2 = swap.optJSONObject("post2");
+                TradeRecord.TradeItem item1 = buildTradeItem(post1);
+                TradeRecord.TradeItem item2 = buildTradeItem(post2);
                 if (currentIsUser1) {
-                    record.setPrimaryItem(buildTradeItem(post1));
-                    record.setSecondaryItem(buildTradeItem(post2));
-                    record.setCounterpartyId(user2);
+                    record.setPrimaryItem(item1 != null ? item1 : item2);
+                    record.setSecondaryItem(item2);
+                    record.setCounterpartyId(!TextUtils.isEmpty(user2) ? user2 : user1);
                 } else {
-                    record.setPrimaryItem(buildTradeItem(post2));
-                    record.setSecondaryItem(buildTradeItem(post1));
-                    record.setCounterpartyId(user1);
+                    record.setPrimaryItem(item2 != null ? item2 : item1);
+                    record.setSecondaryItem(item1);
+                    record.setCounterpartyId(!TextUtils.isEmpty(user1) ? user1 : user2);
+                }
+
+                if (record.getPrimaryItem() != null) {
+                    tradePostIds.add(record.getPrimaryItem().getPostId());
+                }
+                if (record.getSecondaryItem() != null) {
+                    tradePostIds.add(record.getSecondaryItem().getPostId());
                 }
 
                 if (!TextUtils.isEmpty(record.getCounterpartyId()) && !userNameCache.containsKey(record.getCounterpartyId())) {
@@ -551,12 +561,19 @@ public class MyListingsFragment extends Fragment
                 record.setProofUploadSupported(TradeFeatureCompat.isProofPhotoSupported());
                 record.setReceiverName(donation.optString("receiver_name", null));
                 record.setPickupLocation(donation.optString("pickup_location", null));
-                record.setPrimaryItem(buildTradeItem(donation.optJSONObject("post")));
+                TradeRecord.TradeItem donationItem = buildTradeItem(donation.optJSONObject("post"));
+                record.setPrimaryItem(donationItem);
+                if (donationItem != null) {
+                    tradePostIds.add(donationItem.getPostId());
+                }
 
                 String donorId = donation.optString("donor_id");
                 String receiverId = donation.optString("receiver_id");
                 boolean currentIsDonor = userId != null && userId.equals(donorId);
                 String counterpartyId = currentIsDonor ? receiverId : donorId;
+                if (TextUtils.isEmpty(counterpartyId)) {
+                    counterpartyId = currentIsDonor ? donorId : receiverId;
+                }
                 record.setCounterpartyId(counterpartyId);
                 if (!TextUtils.isEmpty(counterpartyId) && !userNameCache.containsKey(counterpartyId)) {
                     pendingProfileLookups.add(counterpartyId);
@@ -581,7 +598,12 @@ public class MyListingsFragment extends Fragment
                 TradeRecord.TradeType type = "donated".equalsIgnoreCase(status)
                         ? TradeRecord.TradeType.DONATION
                         : TradeRecord.TradeType.SWAP;
-                TradeRecord record = new TradeRecord(post.optString("id"), type, parseTimestamp(post.optString("created_at")));
+                String postId = post.optString("id");
+                if (tradePostIds.contains(postId)) {
+                    // already represented by swap/donation; avoid duplicate cards
+                    continue;
+                }
+                TradeRecord record = new TradeRecord(postId, type, parseTimestamp(post.optString("created_at")));
                 record.setStatus(status);
                 record.setPrimaryItem(buildTradeItem(post));
                 record.setProofUploadSupported(true);

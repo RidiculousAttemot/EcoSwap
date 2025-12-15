@@ -89,6 +89,7 @@ public class TradeDetailActivity extends AppCompatActivity {
     private String proofUrl;
     private boolean canUploadProof;
     private boolean isCompleted;
+    private boolean ratingAvailable;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -131,6 +132,10 @@ public class TradeDetailActivity extends AppCompatActivity {
         currentUserId = intent.getStringExtra(EXTRA_CURRENT_USER);
         proofUrl = intent.getStringExtra(EXTRA_PROOF_URL);
         canUploadProof = intent.getBooleanExtra(EXTRA_CAN_UPLOAD_PROOF, false);
+        ratingAvailable = !TextUtils.isEmpty(tradeId) && !TextUtils.isEmpty(counterpartyId) && !TextUtils.isEmpty(currentUserId);
+        if (TextUtils.isEmpty(counterpartyName) && !TextUtils.isEmpty(counterpartyId)) {
+            fetchCounterpartyName();
+        }
     }
 
     private void bindUi() {
@@ -207,6 +212,12 @@ public class TradeDetailActivity extends AppCompatActivity {
             tvPickup.setVisibility(View.GONE);
         }
 
+        if (!ratingAvailable) {
+            ratingBar.setIsIndicator(true);
+            btnSubmit.setEnabled(false);
+            tvRatingState.setText(R.string.trade_detail_rating_unavailable);
+        }
+
         renderProofSection();
         btnSubmit.setOnClickListener(v -> submitRating());
     }
@@ -245,6 +256,41 @@ public class TradeDetailActivity extends AppCompatActivity {
             btnAddProof.setVisibility(View.GONE);
             btnAddProof.setOnClickListener(null);
         }
+    }
+
+    private void fetchCounterpartyName() {
+        if (supabaseClient == null || TextUtils.isEmpty(counterpartyId)) return;
+        String endpoint = "/rest/v1/profiles?select=name&id=eq." + counterpartyId;
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    if (array.length() > 0) {
+                        JSONObject profile = array.getJSONObject(0);
+                        String name = profile.optString("name", null);
+                        if (!TextUtils.isEmpty(name)) {
+                            counterpartyName = name;
+                            runOnUiThread(() -> {
+                                TextView tvPartner = findViewById(R.id.tvPartner);
+                                if (tvPartner != null) {
+                                    if ("donation".equalsIgnoreCase(tradeType)) {
+                                        tvPartner.setText(getString(R.string.trade_history_donation_with, name));
+                                    } else {
+                                        tvPartner.setText(getString(R.string.trade_history_swap_with, name));
+                                    }
+                                }
+                            });
+                        }
+                    }
+                } catch (Exception ignored) { }
+            }
+
+            @Override
+            public void onError(String error) {
+                // best-effort
+            }
+        });
     }
 
     private void setupProofPicker() {
@@ -293,7 +339,7 @@ public class TradeDetailActivity extends AppCompatActivity {
     }
 
     private void loadExistingReview() {
-        if (supabaseClient == null || TextUtils.isEmpty(tradeId) || TextUtils.isEmpty(currentUserId)) {
+        if (supabaseClient == null || !ratingAvailable) {
             return;
         }
         String endpoint = "/rest/v1/reviews?select=rating,comment&trade_id=eq." + tradeId + "&rater_id=eq." + currentUserId;
@@ -324,7 +370,8 @@ public class TradeDetailActivity extends AppCompatActivity {
     }
 
     private void submitRating() {
-        if (supabaseClient == null || TextUtils.isEmpty(tradeId) || TextUtils.isEmpty(counterpartyId) || TextUtils.isEmpty(currentUserId)) {
+        if (supabaseClient == null || !ratingAvailable) {
+            Toast.makeText(this, R.string.trade_detail_rating_unavailable, Toast.LENGTH_SHORT).show();
             return;
         }
         int rating = Math.round(ratingBar.getRating());

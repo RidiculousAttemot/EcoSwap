@@ -7,41 +7,42 @@
     <color name="white_alpha_70">#B3FFFFFF</color>
     <color name="white_alpha_90">#E6FFFFFF</color>
     
-    <!-- Primary Brand Colors (Eye-friendly) -->
-    <color name="primary_green">#00C853</color>
-    <color name="primary_green_dark">#00A843</color>
-    <color name="primary_blue">#2196F3</color>
-    <color name="primary_blue_dark">#1976D2</color>
+    <!-- Primary Brand Colors (Modern Eco Palette) -->
+    <color name="primary_green">#2E7D32</color> <!-- Forest Green: Professional & Restful -->
+    <color name="primary_green_dark">#1B5E20</color>
+    <color name="primary_green_light">#C8E6C9</color>
+    <color name="primary_blue">#1565C0</color>
+    <color name="primary_blue_dark">#0D47A1</color>
     
     <!-- Gradient Colors -->
-    <color name="gradient_green_start">#00C853</color>
-    <color name="gradient_blue_end">#2196F3</color>
+    <color name="gradient_green_start">#2E7D32</color>
+    <color name="gradient_blue_end">#1565C0</color>
     
     <!-- Background Colors -->
-    <color name="background_light">#F5F5F5</color>
+    <color name="background_light">#F8F9FA</color> <!-- Soft Off-White -->
     <color name="background_white">#FFFFFF</color>
     <color name="card_background">#FFFFFF</color>
     
     <!-- Text Colors -->
-    <color name="text_primary">#212121</color>
-    <color name="text_secondary">#757575</color>
-    <color name="text_hint">#BDBDBD</color>
+    <color name="text_primary">#1C1C1E</color> <!-- Softer Black -->
+    <color name="text_secondary">#616161</color>
+    <color name="text_hint">#9E9E9E</color>
     <color name="text_white">#FFFFFF</color>
     
     <!-- Status Colors -->
-    <color name="success_green">#4CAF50</color>
-    <color name="warning_orange">#FF9800</color>
-    <color name="error_red">#F44336</color>
+    <color name="success_green">#43A047</color>
+    <color name="warning_orange">#FB8C00</color>
+    <color name="error_red">#E53935</color>
     
-    <!-- Chip/Category Colors -->
+    <!-- Chip/Category Colors (Pastel) -->
     <color name="chip_electronics">#E3F2FD</color>
     <color name="chip_clothing">#FCE4EC</color>
-    <color name="chip_books">#FFF9C4</color>
+    <color name="chip_books">#FFF3E0</color>
     <color name="chip_furniture">#E8F5E9</color>
     
     <!-- Border/Divider -->
-    <color name="border_light">#E0E0E0</color>
-    <color name="divider">#EEEEEE</color>
+    <color name="border_light">#EEEEEE</color>
+    <color name="divider">#E0E0E0</color>
     
     <!-- Legacy (for compatibility) -->
     <color name="purple_500">#FF6200EE</color>

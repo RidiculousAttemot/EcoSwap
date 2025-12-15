@@ -21,6 +21,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
@@ -32,6 +33,10 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.example.ecoswap.auth.LoginActivity;
 import com.example.ecoswap.R;
 import com.example.ecoswap.dashboard.listings.MyListingsFragment;
@@ -56,6 +61,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimeZone;
 
 public class ProfileFragment extends Fragment {
     
@@ -596,11 +602,10 @@ public class ProfileFragment extends Fragment {
             holder.ratingBar.setRating(row.rating);
 
             String dateLabel = row.createdAt;
-            try {
-                // Basic ISO parse fallback
-                Date parsed = javax.xml.bind.DatatypeConverter.parseDateTime(row.createdAt).getTime();
+            Date parsed = parseIsoDate(row.createdAt);
+            if (parsed != null) {
                 dateLabel = dateFormat.format(parsed);
-            } catch (Exception ignored) { }
+            }
             holder.tvDate.setText(dateLabel);
 
             if (!TextUtils.isEmpty(row.comment)) {
@@ -637,6 +642,28 @@ public class ProfileFragment extends Fragment {
                 return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase(Locale.getDefault());
             }
             return name.substring(0, 1).toUpperCase(Locale.getDefault());
+        }
+
+        private static Date parseIsoDate(String value) {
+            if (TextUtils.isEmpty(value)) return null;
+
+            String[] patterns = {
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+                    "yyyy-MM-dd'T'HH:mm:ssXXX"
+            };
+
+            for (String pattern : patterns) {
+                try {
+                    SimpleDateFormat isoFormat = new SimpleDateFormat(pattern, Locale.US);
+                    isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+                    return isoFormat.parse(value);
+                } catch (Exception ignored) {
+                }
+            }
+
+            return null;
         }
 
         static class ReviewViewHolder extends RecyclerView.ViewHolder {
@@ -1225,15 +1252,27 @@ public class ProfileFragment extends Fragment {
                 .error(R.drawable.bg_circle_white)
                 .into(imgAvatarPhoto);
         } else {
-            String trimmedUrl = currentProfileImageUrl != null
-                ? currentProfileImageUrl.trim()
-                : "";
-            if (!trimmedUrl.isEmpty()) {
+            String trimmedUrl = sanitizeImageUrl(currentProfileImageUrl);
+            if (!TextUtils.isEmpty(trimmedUrl)) {
                 showPhoto = true;
                 Glide.with(this)
                     .load(trimmedUrl)
                     .placeholder(R.drawable.bg_circle_white)
                     .error(R.drawable.bg_circle_white)
+                    .listener(new RequestListener<android.graphics.drawable.Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                            showFallbackAvatar();
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, Target<android.graphics.drawable.Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            imgAvatarPhoto.setVisibility(View.VISIBLE);
+                            tvAvatar.setVisibility(View.GONE);
+                            return false;
+                        }
+                    })
                     .into(imgAvatarPhoto);
             }
         }
@@ -1250,6 +1289,30 @@ public class ProfileFragment extends Fragment {
         if (btnEditProfilePicture != null) {
             btnEditProfilePicture.setEnabled(!isUploadingPhoto);
         }
+    }
+
+    private void showFallbackAvatar() {
+        if (imgAvatarPhoto != null) {
+            Glide.with(this).clear(imgAvatarPhoto);
+            imgAvatarPhoto.setVisibility(View.GONE);
+        }
+        if (tvAvatar != null) {
+            tvAvatar.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private String sanitizeImageUrl(@Nullable String raw) {
+        if (TextUtils.isEmpty(raw)) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.contains(",")) {
+            String[] parts = trimmed.split(",");
+            if (parts.length > 0) {
+                trimmed = parts[0].trim();
+            }
+        }
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void animateProgress(int targetProgress) {

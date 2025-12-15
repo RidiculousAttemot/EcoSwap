@@ -20,6 +20,7 @@ import com.example.ecoswap.utils.SessionManager;
 import com.example.ecoswap.utils.SupabaseClient;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.gson.JsonObject;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.json.JSONArray;
@@ -269,6 +270,8 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
         payload.addProperty("user_id", recipientId);
         payload.addProperty("actor_id", userId);
         payload.addProperty("post_id", postId);
+        payload.addProperty("is_read", false);
+        payload.addProperty("created_at", Instant.now().toString());
         if (!TextUtils.isEmpty(commentId)) {
             payload.addProperty("comment_id", commentId);
         }

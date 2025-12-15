@@ -8,6 +8,7 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -15,6 +16,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.example.ecoswap.R;
 import com.example.ecoswap.chat.ChatFragment;
 import com.example.ecoswap.utils.SupabaseClient;
@@ -145,15 +150,7 @@ public class UserProfileBottomSheet extends BottomSheetDialogFragment {
                             avatarUrl = profile.get("avatar_url").getAsString();
                         }
 
-                        if (avatarUrl != null && !avatarUrl.isEmpty()) {
-                            Glide.with(requireContext())
-                                .load(avatarUrl)
-                                .centerCrop()
-                                .placeholder(R.drawable.bg_circle_white)
-                                .into(imgProfileAvatar);
-                            imgProfileAvatar.setVisibility(View.VISIBLE);
-                            tvProfileAvatar.setVisibility(View.GONE);
-                        }
+                        loadAvatarWithFallback(name, avatarUrl);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -168,6 +165,62 @@ public class UserProfileBottomSheet extends BottomSheetDialogFragment {
                 }
             }
         });
+    }
+
+    private void loadAvatarWithFallback(String name, @Nullable String rawUrl) {
+        if (imgProfileAvatar == null || tvProfileAvatar == null || getContext() == null) {
+            return;
+        }
+        String safeUrl = sanitizeImageUrl(rawUrl);
+        if (!TextUtils.isEmpty(safeUrl)) {
+            Glide.with(requireContext())
+                .load(safeUrl)
+                .centerCrop()
+                .placeholder(R.drawable.bg_circle_white)
+                .error(R.drawable.bg_circle_white)
+                .listener(new RequestListener<android.graphics.drawable.Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<android.graphics.drawable.Drawable> target, boolean isFirstResource) {
+                        showAvatarInitials(name);
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(android.graphics.drawable.Drawable resource, Object model, Target<android.graphics.drawable.Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                        imgProfileAvatar.setVisibility(View.VISIBLE);
+                        tvProfileAvatar.setVisibility(View.GONE);
+                        return false;
+                    }
+                })
+                .into(imgProfileAvatar);
+            return;
+        }
+        showAvatarInitials(name);
+    }
+
+    private void showAvatarInitials(String name) {
+        if (tvProfileAvatar != null) {
+            tvProfileAvatar.setVisibility(View.VISIBLE);
+            tvProfileAvatar.setText(getInitials(name));
+        }
+        if (imgProfileAvatar != null) {
+            Glide.with(requireContext()).clear(imgProfileAvatar);
+            imgProfileAvatar.setVisibility(View.GONE);
+        }
+    }
+
+    private String sanitizeImageUrl(@Nullable String raw) {
+        if (TextUtils.isEmpty(raw)) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.contains(",")) {
+            String[] parts = trimmed.split(",");
+            if (parts.length > 0) {
+                trimmed = parts[0].trim();
+            }
+        }
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void loadUserListings() {

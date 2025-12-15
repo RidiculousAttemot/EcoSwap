@@ -23,6 +23,7 @@ import com.example.ecoswap.utils.SupabaseClient;
 import com.example.ecoswap.utils.SessionManager;
 import com.google.android.material.chip.Chip;
 import com.google.gson.JsonObject;
+import java.time.Instant;
 import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
@@ -249,6 +250,8 @@ public class CommunityPostAdapter extends RecyclerView.Adapter<CommunityPostAdap
         payload.addProperty("message", message);
         payload.addProperty("user_id", recipientId);
         payload.addProperty("actor_id", actorId);
+        payload.addProperty("is_read", false);
+        payload.addProperty("created_at", Instant.now().toString());
         if (!TextUtils.isEmpty(postId)) {
             payload.addProperty("post_id", postId);
         }
