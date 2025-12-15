@@ -106,7 +106,23 @@
     <string name="trade_history_proof_locked">Mark this trade as completed to enable proof uploads.</string>
     <string name="trade_history_proof_upload_error">We couldn’t upload that proof photo. Try a different image.</string>
     <string name="trade_history_proof_upload_success">Proof photo uploaded!</string>
+    <string name="trade_detail_proof_section_title">Proof photo</string>
+    <string name="trade_detail_add_proof">Add proof</string>
+    <string name="trade_detail_view_proof">View</string>
+    <string name="trade_detail_created">Created %1$s</string>
+    <string name="trade_detail_completed">Completed %1$s</string>
+    <string name="trade_detail_proof_link">Proof: %1$s</string>
+    <string name="trade_detail_no_proof">Proof photo not added yet.</string>
+    <string name="trade_detail_pick_rating">Please choose a rating.</string>
+    <string name="trade_detail_already_rated">You rated this trade %1$d stars</string>
+    <string name="trade_detail_submit_error">Couldn’t submit rating: %1$s</string>
+    <string name="trade_detail_submitted">Thanks! You rated %1$d stars</string>
+    <string name="trade_detail_thanks">Thanks for rating your partner.</string>
+    <string name="trade_detail_rate_partner">Rate your partner</string>
+    <string name="trade_detail_submit_cta">Submit rating</string>
     <string name="pickup_location_label">Pickup: %1$s</string>
+    <string name="profile_reviews_load_error">Couldn’t load reviews right now.</string>
+    <string name="profile_reviews_title">Recent reviews</string>
 
     <!-- Community -->
     <string name="more_options">More options</string>

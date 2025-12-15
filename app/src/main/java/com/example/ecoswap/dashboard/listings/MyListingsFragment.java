@@ -22,6 +22,7 @@ import com.example.ecoswap.R;
 import com.example.ecoswap.dashboard.ListingPreviewBottomSheet;
 import com.example.ecoswap.dashboard.MarketplaceFragment;
 import com.example.ecoswap.dashboard.CreateListingFragment;
+import com.example.ecoswap.dashboard.trades.TradeDetailActivity;
 import com.example.ecoswap.dashboard.trades.TradeHistoryAdapter;
 import com.example.ecoswap.dashboard.trades.TradeRecord;
 import com.example.ecoswap.utils.SessionManager;
@@ -583,7 +584,7 @@ public class MyListingsFragment extends Fragment
                 TradeRecord record = new TradeRecord(post.optString("id"), type, parseTimestamp(post.optString("created_at")));
                 record.setStatus(status);
                 record.setPrimaryItem(buildTradeItem(post));
-                record.setProofUploadSupported(false);
+                record.setProofUploadSupported(true);
                 pendingTradeRecords.add(record);
             }
         } catch (JSONException e) {
@@ -762,7 +763,11 @@ public class MyListingsFragment extends Fragment
 
     @Override
     public void onTradeClicked(@NonNull TradeRecord record) {
-        showTradeDetailsDialog(record);
+        if (TextUtils.isEmpty(userId)) {
+            Toast.makeText(getContext(), R.string.require_login_message, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        TradeDetailActivity.launch(requireContext(), record, userId);
     }
 
     private void beginProofUpload(@NonNull Uri uri) {
@@ -817,63 +822,6 @@ public class MyListingsFragment extends Fragment
                 Log.e(TAG, "Failed to save proof url: " + error);
             }
         });
-    }
-
-    private void showTradeDetailsDialog(@NonNull TradeRecord record) {
-        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("MMM d, yyyy h:mm a", java.util.Locale.getDefault());
-        String createdLabel = fmt.format(new java.util.Date(record.getCreatedAtEpochMs()));
-        String completedLabel = record.getCompletedAtEpochMs() != null
-                ? fmt.format(new java.util.Date(record.getCompletedAtEpochMs()))
-                : getString(R.string.trade_history_pending_label);
-
-        StringBuilder message = new StringBuilder();
-        if (record.getPrimaryItem() != null) {
-            message.append(getString(R.string.listing_preview_details_header)).append(": ")
-                    .append(record.getPrimaryItem().getTitle()).append("\n");
-        }
-        if (record.getType() == TradeRecord.TradeType.SWAP && record.getSecondaryItem() != null) {
-            message.append(getString(R.string.trade_history_swap_with, record.getCounterpartyName() != null ? record.getCounterpartyName() : getString(R.string.trade_history_partner_unknown)))
-                    .append("\n");
-        } else if (record.getType() == TradeRecord.TradeType.DONATION) {
-            String donationPartner = !TextUtils.isEmpty(record.getCounterpartyName())
-                    ? record.getCounterpartyName()
-                    : (!TextUtils.isEmpty(record.getReceiverName())
-                        ? record.getReceiverName()
-                        : getString(R.string.trade_history_receiver_placeholder));
-            message.append(getString(R.string.trade_history_donation_with, donationPartner)).append("\n");
-            if (!TextUtils.isEmpty(record.getPickupLocation())) {
-                message.append(getString(R.string.pickup_location_label, record.getPickupLocation())).append("\n");
-            }
-        }
-
-        message.append("Created: ").append(createdLabel).append("\n");
-        message.append("Completed: ").append(completedLabel).append("\n");
-
-        boolean hasProof = !TextUtils.isEmpty(record.getProofPhotoUrl());
-        if (hasProof) {
-            message.append(getString(R.string.trade_history_proof_uploaded)).append("\n");
-        } else if (record.canUploadProof()) {
-            message.append(getString(R.string.trade_history_proof_missing)).append("\n");
-        } else {
-            message.append(getString(R.string.trade_history_proof_locked)).append("\n");
-        }
-
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(record.getType() == TradeRecord.TradeType.SWAP ? R.string.trade_history_swap_with : R.string.trade_history_donation_with)
-                .setMessage(message.toString())
-                .setPositiveButton(android.R.string.ok, null);
-
-        if (hasProof) {
-            builder.setNeutralButton("View proof", (d, which) -> {
-                try {
-                    startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(record.getProofPhotoUrl())));
-                } catch (Exception e) {
-                    Toast.makeText(requireContext(), "Unable to open proof", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-
-        builder.show();
     }
 
     private void updateImpactForInvolvedUsers(@NonNull TradeRecord record) {
@@ -1100,7 +1048,8 @@ public class MyListingsFragment extends Fragment
             @Override
             public void onError(String error) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(getContext(), R.string.chat_mark_complete_error, Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Failed to mark listing complete: " + error);
+                Toast.makeText(getContext(), getString(R.string.chat_mark_complete_error) + " (" + error + ")", Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -84,6 +84,10 @@
         <activity
             android:name=".market.BidDetailActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".dashboard.trades.TradeDetailActivity"
+            android:exported="false" />
         
         <!-- Tracker Activity -->
         <activity

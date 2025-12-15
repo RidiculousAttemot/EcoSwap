@@ -29,6 +29,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.ecoswap.auth.LoginActivity;
 import com.example.ecoswap.R;
@@ -37,17 +39,23 @@ import com.example.ecoswap.utils.ProfileImageUploader;
 import com.example.ecoswap.utils.SessionManager;
 import com.example.ecoswap.utils.SupabaseClient;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ProfileFragment extends Fragment {
     
@@ -73,11 +81,13 @@ public class ProfileFragment extends Fragment {
     private LinearLayout btnLogout;
     private LinearLayout btnMyListings;
     private LinearLayout btnNotifications;
+    private LinearLayout btnMyImpact;
     private ProgressBar progressLevel;
     
     private SessionManager sessionManager;
     private SupabaseClient supabaseClient;
     private Gson gson;
+    private final List<ReviewRow> reviewRows = new ArrayList<>();
     
     private String currentUserId;
     private String currentUserEmail;
@@ -89,9 +99,30 @@ public class ProfileFragment extends Fragment {
     private String activeUploadToken;
     private String lastSubmittedBio;
     private boolean awaitingBioSync;
+    private int impactScoreValue;
+    private int totalSwapsValue;
+    private int totalDonationsValue;
+    private String ecoLevelValue = "Beginner EcoSaver";
+    private String ecoIconValue = "🌱";
     
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private ActivityResultLauncher<String> requestPermissionLauncher;
+
+    private static class ReviewRow {
+        final String name;
+        final String avatarUrl;
+        final int rating;
+        final String createdAt;
+        final String comment;
+
+        ReviewRow(String name, String avatarUrl, int rating, String createdAt, String comment) {
+            this.name = name;
+            this.avatarUrl = avatarUrl;
+            this.rating = rating;
+            this.createdAt = createdAt;
+            this.comment = comment;
+        }
+    }
 
     private static final LevelThreshold[] LEVEL_THRESHOLDS = new LevelThreshold[]{
         new LevelThreshold("Beginner EcoSaver", 0, 10, "Rising Recycler"),
@@ -174,6 +205,7 @@ public class ProfileFragment extends Fragment {
         btnLogout = view.findViewById(R.id.btnLogout);
         btnMyListings = view.findViewById(R.id.btnMyListings);
         btnNotifications = view.findViewById(R.id.btnNotifications);
+        btnMyImpact = view.findViewById(R.id.btnMyImpact);
         
         btnEditProfilePicture.setOnClickListener(v -> {
             checkPermissionAndOpenPicker();
@@ -193,6 +225,14 @@ public class ProfileFragment extends Fragment {
 
         if (btnNotifications != null) {
             btnNotifications.setOnClickListener(v -> openNotifications());
+        }
+
+        if (btnMyImpact != null) {
+            btnMyImpact.setOnClickListener(v -> openImpactDetails());
+        }
+
+        if (tvReviewCount != null) {
+            tvReviewCount.setOnClickListener(v -> openReviewsDialog());
         }
         
         return view;
@@ -311,27 +351,27 @@ public class ProfileFragment extends Fragment {
                 tvLocation.setVisibility(View.GONE);
             }
 
-            String ecoIcon = profile.has("eco_icon") && !profile.get("eco_icon").isJsonNull()
+            ecoIconValue = profile.has("eco_icon") && !profile.get("eco_icon").isJsonNull()
                 ? profile.get("eco_icon").getAsString()
                 : "🌱";
-            String ecoLevel = profile.has("eco_level") && !profile.get("eco_level").isJsonNull()
+            ecoLevelValue = profile.has("eco_level") && !profile.get("eco_level").isJsonNull()
                 ? profile.get("eco_level").getAsString()
                 : "Beginner EcoSaver";
 
-            int totalSwaps = profile.has("total_swaps") && !profile.get("total_swaps").isJsonNull()
+            totalSwapsValue = profile.has("total_swaps") && !profile.get("total_swaps").isJsonNull()
                 ? profile.get("total_swaps").getAsInt()
                 : 0;
-            tvSwapsCount.setText(String.valueOf(totalSwaps));
+            tvSwapsCount.setText(String.valueOf(totalSwapsValue));
 
-            int totalDonations = profile.has("total_donations") && !profile.get("total_donations").isJsonNull()
+            totalDonationsValue = profile.has("total_donations") && !profile.get("total_donations").isJsonNull()
                 ? profile.get("total_donations").getAsInt()
                 : 0;
-            tvDonatedCount.setText(String.valueOf(totalDonations));
+            tvDonatedCount.setText(String.valueOf(totalDonationsValue));
 
-            int impactScore = profile.has("impact_score") && !profile.get("impact_score").isJsonNull()
+            impactScoreValue = profile.has("impact_score") && !profile.get("impact_score").isJsonNull()
                 ? profile.get("impact_score").getAsInt()
                 : 0;
-            tvImpact.setText(String.valueOf(impactScore));
+            tvImpact.setText(String.valueOf(impactScoreValue));
 
             Double ratingValue = profile.has("rating") && !profile.get("rating").isJsonNull()
                 ? profile.get("rating").getAsDouble()
@@ -340,8 +380,8 @@ public class ProfileFragment extends Fragment {
                 ? profile.get("review_count").getAsInt()
                 : null;
 
-            updateRatingSection(ratingValue, reviewCountValue, totalSwaps, impactScore);
-            updateEcoLevelSection(ecoIcon, ecoLevel, impactScore);
+            updateRatingSection(ratingValue, reviewCountValue, totalSwapsValue, impactScoreValue);
+            updateEcoLevelSection(ecoIconValue, ecoLevelValue, impactScoreValue);
         });
     }
     
@@ -446,6 +486,177 @@ public class ProfileFragment extends Fragment {
         }
         NotificationsBottomSheet.newInstance()
                 .show(getParentFragmentManager(), "notifications_sheet");
+    }
+
+    private void openImpactDetails() {
+        if (!isAdded()) {
+            return;
+        }
+
+        StringBuilder message = new StringBuilder();
+        message.append(ecoIconValue).append(" ").append(ecoLevelValue)
+                .append(" • Impact score ").append(impactScoreValue).append("\n\n");
+        message.append("How you earn impact:\n");
+        message.append("• Swaps completed: ").append(totalSwapsValue).append(" (each swap adds +2)\n");
+        message.append("• Donations made: ").append(totalDonationsValue).append(" (each donation adds +3)\n\n");
+        message.append("Why it matters:\n");
+        message.append("Higher impact means more trust in the community, better visibility, and progress toward eco badges. Keep swapping or donating to level up and help more items find a new life.");
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("My Impact")
+                .setMessage(message.toString())
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
+
+    private void openReviewsDialog() {
+        if (TextUtils.isEmpty(currentUserId) || supabaseClient == null) {
+            Toast.makeText(getContext(), R.string.require_login_message, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!isAdded()) {
+            return;
+        }
+        LayoutInflater inflater = LayoutInflater.from(getContext());
+        View content = inflater.inflate(R.layout.dialog_profile_reviews, null);
+        RecyclerView rv = content.findViewById(R.id.rvReviews);
+        TextView tvEmpty = content.findViewById(R.id.tvReviewsEmpty);
+        rv.setLayoutManager(new LinearLayoutManager(getContext()));
+        ReviewAdapter adapter = new ReviewAdapter(reviewRows);
+        rv.setAdapter(adapter);
+
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext())
+                .setView(content)
+                .setPositiveButton(android.R.string.ok, null);
+        Dialog dialog = builder.create();
+        dialog.show();
+
+        fetchReviews(adapter, tvEmpty);
+    }
+
+    private void fetchReviews(@NonNull ReviewAdapter adapter, @NonNull TextView tvEmpty) {
+        String endpoint = "/rest/v1/reviews?select=rating,comment,created_at,rater:profiles(name,profile_image_url)&ratee_id=eq." + currentUserId + "&order=created_at.desc&limit=50";
+        supabaseClient.query(endpoint, new SupabaseClient.OnDatabaseCallback() {
+            @Override
+            public void onSuccess(Object data) {
+                try {
+                    JSONArray array = new JSONArray(data.toString());
+                    reviewRows.clear();
+                    for (int i = 0; i < array.length(); i++) {
+                        JSONObject row = array.getJSONObject(i);
+                        int rating = row.optInt("rating", 0);
+                        String comment = row.optString("comment", "");
+                        String createdAt = row.optString("created_at", "");
+                        JSONObject rater = row.optJSONObject("rater");
+                        String raterName = rater != null ? rater.optString("name", "EcoSwap member") : "EcoSwap member";
+                        String raterAvatar = rater != null ? rater.optString("profile_image_url", null) : null;
+                        reviewRows.add(new ReviewRow(raterName, raterAvatar, rating, createdAt, comment));
+                    }
+                    requireActivity().runOnUiThread(() -> {
+                        adapter.notifyDataSetChanged();
+                        tvEmpty.setVisibility(reviewRows.isEmpty() ? View.VISIBLE : View.GONE);
+                    });
+                } catch (Exception e) {
+                    requireActivity().runOnUiThread(() -> {
+                        tvEmpty.setVisibility(View.VISIBLE);
+                        tvEmpty.setText(R.string.profile_reviews_load_error);
+                    });
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                requireActivity().runOnUiThread(() -> {
+                    tvEmpty.setVisibility(View.VISIBLE);
+                    tvEmpty.setText(R.string.profile_reviews_load_error);
+                });
+            }
+        });
+    }
+
+    private static class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.ReviewViewHolder> {
+        private final List<ReviewRow> rows;
+        private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMM d, yyyy", Locale.getDefault());
+
+        ReviewAdapter(List<ReviewRow> rows) {
+            this.rows = rows;
+        }
+
+        @NonNull
+        @Override
+        public ReviewViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_profile_review, parent, false);
+            return new ReviewViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull ReviewViewHolder holder, int position) {
+            ReviewRow row = rows.get(position);
+            holder.tvName.setText(row.name);
+            holder.ratingBar.setRating(row.rating);
+
+            String dateLabel = row.createdAt;
+            try {
+                // Basic ISO parse fallback
+                Date parsed = javax.xml.bind.DatatypeConverter.parseDateTime(row.createdAt).getTime();
+                dateLabel = dateFormat.format(parsed);
+            } catch (Exception ignored) { }
+            holder.tvDate.setText(dateLabel);
+
+            if (!TextUtils.isEmpty(row.comment)) {
+                holder.tvComment.setVisibility(View.VISIBLE);
+                holder.tvComment.setText(row.comment);
+            } else {
+                holder.tvComment.setVisibility(View.GONE);
+            }
+
+            if (!TextUtils.isEmpty(row.avatarUrl)) {
+                holder.tvInitials.setVisibility(View.GONE);
+                holder.ivAvatar.setVisibility(View.VISIBLE);
+                Glide.with(holder.ivAvatar.getContext())
+                        .load(row.avatarUrl)
+                        .centerCrop()
+                        .placeholder(R.drawable.ic_avatar_placeholder)
+                        .into(holder.ivAvatar);
+            } else {
+                holder.ivAvatar.setVisibility(View.GONE);
+                holder.tvInitials.setVisibility(View.VISIBLE);
+                holder.tvInitials.setText(extractInitials(row.name));
+            }
+        }
+
+        @Override
+        public int getItemCount() {
+            return rows.size();
+        }
+
+        private static String extractInitials(String name) {
+            if (TextUtils.isEmpty(name)) return "?";
+            String[] parts = name.trim().split(" ");
+            if (parts.length >= 2) {
+                return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase(Locale.getDefault());
+            }
+            return name.substring(0, 1).toUpperCase(Locale.getDefault());
+        }
+
+        static class ReviewViewHolder extends RecyclerView.ViewHolder {
+            final TextView tvName;
+            final TextView tvDate;
+            final TextView tvComment;
+            final TextView tvInitials;
+            final ImageView ivAvatar;
+            final RatingBar ratingBar;
+
+            ReviewViewHolder(@NonNull View itemView) {
+                super(itemView);
+                tvName = itemView.findViewById(R.id.tvReviewerName);
+                tvDate = itemView.findViewById(R.id.tvReviewDate);
+                tvComment = itemView.findViewById(R.id.tvReviewComment);
+                tvInitials = itemView.findViewById(R.id.tvAvatar);
+                ivAvatar = itemView.findViewById(R.id.ivReviewer);
+                ratingBar = itemView.findViewById(R.id.reviewRatingBar);
+            }
+        }
     }
     
     private void showEditProfileDialog() {
@@ -981,13 +1192,17 @@ public class ProfileFragment extends Fragment {
             int count = Math.max(0, reviewCountValue);
             if (count > 0) {
                 tvReviewCount.setText(count + " review" + (count == 1 ? "" : "s"));
+                tvReviewCount.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_chevron_right, 0);
             } else {
                 tvReviewCount.setText("No reviews yet");
+                tvReviewCount.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
             }
         } else if (totalSwaps > 0) {
             tvReviewCount.setText(totalSwaps + " swap" + (totalSwaps == 1 ? "" : "s"));
+            tvReviewCount.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
         } else {
             tvReviewCount.setText("No reviews yet");
+            tvReviewCount.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
         }
     }
 

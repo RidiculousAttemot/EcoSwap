@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvReviewsTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Recent reviews"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:paddingBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvReviewsEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No reviews yet"
+        android:textColor="@color/text_secondary"
+        android:visibility="gone"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvReviews"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:scrollbars="vertical" />
+
+</LinearLayout>
